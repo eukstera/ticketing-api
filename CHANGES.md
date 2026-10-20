@@ -41,9 +41,9 @@ Read-only audit by the API team (be-apicoder, be-coder, be-coder2). No code or d
   - The assignee's department is not checked.
 - **Accomplishment report:**
   - Any user can export any other user's report through `user_id` (IDOR, `AccomplishmentReportController:22`).
-  - A user without a designation causes a null dereference and a 500 (`:26-35,245`).
   - The date filter uses `tickets.created_at` instead of `comments.created_at`, so comments are dropped or duplicated (`:40-57`).
 - **Filename case mismatch.** `Accomplishmentreportcontroller.php` contains `AccomplishmentReportController`, so PSR-4 autoload fails on Linux.
+- **Duplicate ticket numbers under concurrency.** `TicketNumberGenerator` releases `GET_LOCK` before the caller inserts the ticket (`TicketingController.php:56-61`), and `tickets.ticket_number` has no unique index, so two concurrent requests can receive the same number.
 - **Public `POST /designations`** lets anyone write to the database (`routes/api.php:18`, `UserController.php:39-75`).
 - **Overdue middleware runs on every request.** It is registered globally (`bootstrap/app.php:16-17`), so it writes on every request, including `/up` and OPTIONS preflights. It hardcodes status ids 1, 2 and 4, uses DB-server time instead of the app timezone (Asia/Manila), and compares against `priority.SLA`, which is a string column.
 - **Dashboard date handling.** `Carbon::createFromFormat('Y-m')` returns a 500 on bad input and rolls over the month on the 29th–31st (`TicketingController.php:636-659`).
@@ -78,6 +78,8 @@ Read-only audit by the API team (be-apicoder, be-coder, be-coder2). No code or d
 
 - `whereRaw` with an interpolated `$userId` (`TicketingController.php:450`). It is not exploitable today, but it should be bound.
 - Magic ids for status, date category and department (`?? 1` fallback at `:638`).
+- The report dereferences `$preparedByUser` without a null check (`AccomplishmentReportController:26-35,245`). Every user has a designation, so this only fails if the user row is missing.
+- Each login issues a new token without revoking old ones. A `GET_LOCK` timeout returns a 500 instead of a clean error.
 - Hardcoded approver name in the report. The temporary file from `tempnam` is never deleted.
 - Factories:
   - Only User and Ticket exist.
@@ -95,7 +97,9 @@ Read-only audit by the API team (be-apicoder, be-coder, be-coder2). No code or d
 - The frontend has no global 401 handler and no logout endpoint to call.
 - The report filename is built on the client. CORS `exposed_headers` is empty, so the frontend can't read `Content-Disposition`.
 - These routes exist but the frontend doesn't use them: `/priority`, `/overdueTickets`, `/saveTicketIT`, `/saveTicketEngineering`, `/getTicketRequests` (likely a separate requestor portal).
-- Still being checked: whether `user` on date activities serializes as a string or an object, and whether the `status` fields on users and designations exist.
+- Date-activity `user` serializes as a string through `TicketDateActivity::toArray()`, which matches the frontend. It can be null, but the frontend type `ActivityInfo.user` is non-null.
+- `User.status` arrives as `1`/`0` (no casts), but the frontend types it as boolean. `User.designation_id` arrives as a number, but the frontend types it as a string.
+- The comment update response (`CommentController.php:69`, `load('user')`) exposes the commenter's email, `department_id`, `role_id` and `status`. Passwords are hidden in every payload.
 
 ### Planned
 
