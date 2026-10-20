@@ -80,6 +80,20 @@ Admin resource shapes are `{ id, name|label|level..., status: boolean, created_a
 - **CORS:** allowed origins come from `CORS_ALLOWED_ORIGINS` (comma-separated). The dev defaults are `http://localhost:3000` and `https://snaking-easing-mystify.ngrok-free.dev`. `Content-Disposition` is exposed and credentials are false. The prod origin is set on deploy.
 - **Migrations:** additive only. The dev database was backed up with mysqldump to `storage/app/backups/` (gitignored) before the first migrate.
 
+### Data changes on dev DB (approved)
+
+- Backup: `storage/app/backups/ticketing_api_2026-10-20_pre-phase1.sql` (gitignored).
+- Duplicate ticket numbers renumbered so the unique index could be added. Only these 2 rows were touched:
+  - ticket id 50: `10-906-2026` → `10-1000-2026`
+  - ticket id 46: `10-637-2026` → `10-1001-2026`
+  - The migration's `down()` drops only the index.
+- `tickets:promote-overdue` was run once to verify it. It promoted 22 tickets to Overdue, the same change the old middleware would have made on the next request.
+
+### Behavior changes
+
+- Ticket number sequence: the number has no department in it, so IT and Engineering would collide under the new unique index. The sequence is now **global per year and month** (new `ticket_sequences` table), and `TicketNumberGenerator::generate()` ignores its department argument. The `MM-XXX-YYYY` format with 3-digit padding is unchanged. The next dev ticket will be `10-1002-2026`.
+- New `cache` and `cache_locks` tables, needed by the scheduler's `withoutOverlapping()`. `sessions`, `jobs` and `password_reset_tokens` are still missing; they're unused by the bearer-token API.
+
 ### Known risks (accepted by user)
 
 - `POST /saveTicketIT`, `POST /saveTicketEngineering` and `GET /getTicketRequests` stay public and unchanged. `getTicketRequests?requestorId=` lets anyone read any requestor's tickets (IDOR). The ticket-number lock and the unique index still apply to these routes.
