@@ -11,15 +11,22 @@ These apply to `GET /getDepartmentTickets` and `GET /getMyTickets`. All params a
 | Param | Type | Behavior |
 |---|---|---|
 | `search` | string | Matches `ticket_number`, `name_of_area`, requester full name, and concern (type of concern or nature of work). Case-insensitive `LIKE`. |
-| `status` | int (status id) | as today |
-| `priority` | int (priority id) | as today |
+| `status_id` | int (status id) | **new and preferred.** Filters by id. |
+| `priority_id` | int (priority id) | **new and preferred.** Filters by id. |
+| `status` | string (status label) | legacy, still supported as today (filters by label, e.g. dashboard deep-links). Ignored when `status_id` is sent. |
+| `priority` | string (priority level) | legacy, still supported as today (filters by level). Ignored when `priority_id` is sent. |
 | `date_from`, `date_to` | `Y-m-d` | Filters on the requested date (Requested Date activity), inclusive. `date_to` must be on or after `date_from`. |
 | `page` | int | as today |
 | `per_page` | int | 1–100, default 10 |
 | `sort` | `requested_at` \| `ticket_number` \| `priority` \| `status` | default `requested_at` |
 | `dir` | `asc` \| `desc` | default `desc` |
 
-The response shape is unchanged: a paginator plus `status_counts`, `priority_counts` and `priority_sla`. Counts respect `search` and the date range but not `status`, so the tab badges stay meaningful.
+Response changes:
+- The paginator and `priority_sla` are unchanged.
+- **Breaking change:** `status_counts` becomes an array of `{ id, label, count }`, including statuses with a count of 0, plus `{ id: null, label: "All", count }` as the first entry.
+- **Breaking change:** `priority_counts` becomes an array of `{ id, level, sla_days, count }`.
+- Counts respect `search`, the date range and the priority filter, but ignore the status filter, so the tab badges stay meaningful.
+- Every row carries `department_id`, `status_id` and `priority_id` (numbers) next to the existing `status` and `priority` labels. `department_id` ships in Phase 1 (see below).
 
 ### (b) Ticket detail
 
@@ -49,12 +56,14 @@ Every route in this section requires the `admin` gate, meaning the caller's role
 | Resource | Routes | Writable fields |
 |---|---|---|
 | Users | `GET/POST /admin/users`, `GET/PATCH /admin/users/{user}`, `DELETE /admin/users/{user}` (deactivates the user and revokes their tokens) | first_name, last_name, email, password (optional on PATCH), department_id, designation_id, role_id, status |
-| Roles | `GET /roles` (bearer, any user: `{ roles: [{ id, name }] }`), `POST /admin/roles`, `PATCH /admin/roles/{role}`, `DELETE /admin/roles/{role}` | name. The "Department Head" role cannot be renamed or deleted (409). |
+| Roles | `GET /roles` (bearer, any user; active roles only: `{ roles: [{ id, name, status }] }`), `POST /admin/roles`, `PATCH /admin/roles/{role}`, `DELETE /admin/roles/{role}` | name, status. `roles.status` already exists in the schema, so no migration is needed. The "Department Head" role cannot be renamed or deactivated (409). Deactivating a role that active users still hold returns 409 `{ message, errors: { role: ["N active users hold this role"] } }`. |
 | Departments | `GET/POST /admin/departments`, `PATCH/DELETE /admin/departments/{department}` | name, status |
 | Designations | `GET /admin/designations?department_id`, `PATCH/DELETE /admin/designations/{designation}` (create stays `POST /designations`) | designation, department_id, status |
 | Priorities | `GET/POST /admin/priorities`, `PATCH/DELETE /admin/priorities/{priority}` | level, sla_days (int ≥ 0), department_id, status |
 | Concern types | `GET/POST /admin/concern-types`, `PATCH/DELETE /admin/concern-types/{id}` | label, status |
 | Nature of work | `GET/POST /admin/nature-of-work`, `PATCH/DELETE /admin/nature-of-work/{id}` | label, status |
+
+**Status on PATCH:** every admin resource accepts `status` (boolean) on `PATCH`.
 
 **Reactivate:** `PATCH` with `{ status: true }` reactivates any deactivated row (users, roles, departments, designations, priorities, concern types, nature of work). Admin list endpoints accept `?status=active|inactive|all` (default `all`). Deactivated rows are excluded from the public and lookup endpoints (`/designations`, `/priority`, `/lookups/*`, `/employees`). A deactivated user cannot log in (403).
 
@@ -135,6 +144,7 @@ The frontend checks admin rights with `user.role.name === "Department Head"`.
 
 **Shape changes**
 - The comment `user` is always `{ id, first_name, last_name }` on index, create and update.
+- Rows from `getDepartmentTickets` and `getMyTickets` gain `department_id` (number, the handling department). The frontend shows "Take ticket" when `status === "Open"` and `user.department_id === row.department_id`.
 - Casts: `status` fields are booleans, ids are numbers, and `priority.sla_days` is an int.
 - The overdue status is set by the scheduled command `tickets:promote-overdue` (every 5 minutes), no longer per request.
 
