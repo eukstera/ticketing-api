@@ -93,6 +93,16 @@ Every route in this section requires the `admin` gate, meaning the caller's role
   - admin user rows use the Phase 1 `User` shape: `department { id, name }`, `designation { id, name }`, `role { id, name }`
 - `GET /lookups/departments` (any authenticated user, active only) returns `{ departments: [{ id, name }] }`. Use it for department dropdowns, including on admin screens.
 
+**Validation details (Phase 2):**
+- These all return 422:
+  - `per_page` outside 1–100
+  - an unknown `status` value on admin lists
+  - an invalid `sort`, `dir` or date on ticket lists
+- An unknown id on any route returns 404 `{ success: false, message }`.
+- `is_overdue` is true when the ticket's status is Overdue, or when the ticket is open or in progress and past `due_at`. It is false for Completed tickets.
+- `due_at` = requested date + `sla_days` days.
+- The profile throttle counts failed attempts too.
+
 **Status on PATCH:** every admin resource accepts `status` (boolean) on `PATCH`.
 
 **Reactivate:** `PATCH` with `{ status: true }` reactivates any deactivated row (users, roles, departments, designations, priorities, concern types, nature of work). Admin list endpoints accept `?status=active|inactive|all` (default `all`). Deactivated rows are excluded from the public and lookup endpoints (`/designations`, `/priority`, `/lookups/*`, `/employees`). A deactivated user cannot log in (403).
