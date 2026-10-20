@@ -2,39 +2,40 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AccomplishmentReportRequest;
 use App\Models\Comment;
 use App\Models\User;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
+use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\Jc;
 
 class AccomplishmentReportController extends Controller
 {
-    public function generate(Request $request)
+    public function generate(AccomplishmentReportRequest $request)
     {
-        $request->validate([
-            'date_from' => 'required|date',
-            'date_to'   => 'required|date|after_or_equal:date_from',
-            'user_id'   => 'nullable|integer',
-        ]);
+        $userId = (int) ($request->validated('user_id') ?? $request->user()->id);
 
-        $userId  = $request->input('user_id', $request->user()->id);
+        if ($userId !== $request->user()->id && ! Gate::allows('admin')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can only export your own report.',
+            ], 403);
+        }
+
         $dateFrom = Carbon::parse($request->date_from)->startOfDay();
-        $dateTo   = Carbon::parse($request->date_to)->endOfDay();
+        $dateTo = Carbon::parse($request->date_to)->endOfDay();
+        $rangeHeading = $this->rangeHeading($dateFrom, $dateTo);
 
-        $preparedByUser = 
-        User::where('users.id', $request->user()->id)
-        ->join('designations', 'designations.id', 'users.designation_id')
-        ->first();
+        $preparedByUser = User::with('designation')->find($userId);
 
-        
         $preparedByName = $preparedByUser
-            ? strtoupper(trim($preparedByUser->first_name . ' ' . $preparedByUser->last_name))
+            ? strtoupper(trim($preparedByUser->first_name.' '.$preparedByUser->last_name))
             : '';
-        $preparedByPosition = $preparedByUser->designation ?? '';
+        $preparedByPosition = $preparedByUser?->designation?->designation ?? '';
 
-        $approvedByName     = 'JOSEFA SOCORRO MOLON PATAWARAN';
+        $approvedByName = 'JOSEFA SOCORRO MOLON PATAWARAN';
         $approvedByPosition = 'CMT II – ICTS';
 
         $comments = Comment::with('ticket')
@@ -44,11 +45,11 @@ class AccomplishmentReportController extends Controller
             })
             ->join('ticket_date_activities', function ($q) {
                 $q->on('ticket_date_activities.ticket_id', 'comments.ticket_id')
-                    ->where('date_category_id', 1);
+                    ->where('ticket_date_activities.date_category_id', 1);
             })
             ->where('comments.user_id', $userId)
-            ->whereBetween('tickets.created_at', [$dateFrom, $dateTo])
-            ->orderBy('tickets.created_at')
+            ->whereBetween('comments.created_at', [$dateFrom, $dateTo])
+            ->orderBy('comments.created_at')
             ->get();
 
         // ---- 2. Group by calendar day ----
@@ -63,47 +64,47 @@ class AccomplishmentReportController extends Controller
         }
 
         // ---- 3. Build the document ----
-        $phpWord = new PhpWord();
+        $phpWord = new PhpWord;
         // $phpWord->getSettings()->setUpdateFields(true);
 
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(10);
         $phpWord->setDefaultParagraphStyle([
-            'spaceAfter'  => 0,
+            'spaceAfter' => 0,
             'spaceBefore' => 0,
-            'lineHeight'  => 1.0,
+            'lineHeight' => 1.0,
         ]);
 
         $section = $phpWord->addSection([
-            'marginTop'    => 3600, 
+            'marginTop' => 3600,
             'marginBottom' => 700,
-            'marginLeft'   => 900,
-            'marginRight'  => 900,
+            'marginLeft' => 900,
+            'marginRight' => 900,
             'headerHeight' => 900,
-            'colsNum'      => 2,
-            'colsSpace'    => 400,
+            'colsNum' => 2,
+            'colsSpace' => 400,
         ]);
 
         $center = ['alignment' => Jc::CENTER];
 
-        $dohLogoPath     = public_path('images/doh-logo.png');
+        $dohLogoPath = public_path('images/doh-logo.png');
         $schistoLogoPath = public_path('images/scisto-logo.jpg');
 
         // Reusable letterhead builder — attached to every section that needs
-        $addLetterhead = function ($section) use ($center, $dohLogoPath, $schistoLogoPath, $dateFrom, $dateTo) {
+        $addLetterhead = function ($section) use ($center, $dohLogoPath, $schistoLogoPath, $rangeHeading) {
             $header = $section->addHeader();
 
             $table = $header->addTable([
-                'borderSize'        => 0,
-                'borderColor'       => 'FFFFFF',
-                'borderTopSize'     => 0,
-                'borderBottomSize'  => 0,
-                'borderLeftSize'    => 0,
-                'borderRightSize'   => 0,
+                'borderSize' => 0,
+                'borderColor' => 'FFFFFF',
+                'borderTopSize' => 0,
+                'borderBottomSize' => 0,
+                'borderLeftSize' => 0,
+                'borderRightSize' => 0,
                 'borderInsideHSize' => 0,
                 'borderInsideVSize' => 0,
-                'cellMargin'        => 0,
-                'alignment'         => Jc::CENTER,
+                'cellMargin' => 0,
+                'alignment' => Jc::CENTER,
             ]);
 
             $table->addRow();
@@ -127,11 +128,7 @@ class AccomplishmentReportController extends Controller
             );
             $centerCell->addText('Palo, Leyte', ['size' => 11], $center);
             $centerCell->addText('DAILY ACCOMPLISHMENT REPORT', ['bold' => true, 'size' => 12], $center);
-            $centerCell->addText(
-                $dateFrom->format('F j') . '-' . $dateTo->format('j, Y'),
-                ['size' => 11],
-                $center
-            );
+            $centerCell->addText($rangeHeading, ['size' => 11], $center);
 
             $rightCell = $table->addCell(1400, ['valign' => 'top']);
             if (file_exists($schistoLogoPath)) {
@@ -154,7 +151,7 @@ class AccomplishmentReportController extends Controller
 
             // Date heading, e.g. "06/16/2026 – Tuesday." (no underline)
             $body->addText(
-                $date->format('m/d/Y') . ' – ' . $date->format('l'),
+                $date->format('m/d/Y').' – '.$date->format('l'),
                 ['bold' => true],
                 $entrySpacing
             );
@@ -176,10 +173,10 @@ class AccomplishmentReportController extends Controller
                     $ticket = $c->ticket;
 
                     if ($ticket) {
-                        $prefix  = 'J.O.#' . $ticket->ticket_number . ' – ';
+                        $prefix = 'J.O.#'.$ticket->ticket_number.' – ';
                         $body_txt = $c->comment;
                         $requestedBy = $c->activity_requestor
-                            ? '. Requested by ' . $c->activity_requestor . '.'
+                            ? '. Requested by '.$c->activity_requestor.'.'
                             : '.';
                     } else {
                         $prefix = '';
@@ -188,7 +185,7 @@ class AccomplishmentReportController extends Controller
                     }
 
                     $body->addText(
-                        $num . '. ' . $prefix . $body_txt . $requestedBy,
+                        $num.'. '.$prefix.$body_txt.$requestedBy,
                         [],
                         $indent
                     );
@@ -201,23 +198,23 @@ class AccomplishmentReportController extends Controller
 
         // ---- Signatory page (own page, same repeating letterhead) ----
         $sigSection = $phpWord->addSection([
-            'marginTop'    => 3600, // matches main section fix
+            'marginTop' => 3600, // matches main section fix
             'marginBottom' => 700,
-            'marginLeft'   => 900,
-            'marginRight'  => 900,
+            'marginLeft' => 900,
+            'marginRight' => 900,
             'headerHeight' => 900,
         ]);
         $addLetterhead($sigSection);
 
-        $sigLeft   = ['alignment' => Jc::START];
+        $sigLeft = ['alignment' => Jc::START];
         $sigCenter = ['alignment' => Jc::CENTER];
 
         $sigSection->addTextBreak(4);
 
         $sigTable = $sigSection->addTable([
-            'borderSize'  => 0,
+            'borderSize' => 0,
             'borderColor' => 'FFFFFF',
-            'cellMargin'  => 0,
+            'cellMargin' => 0,
         ]);
 
         $sigTable->addRow();
@@ -239,15 +236,34 @@ class AccomplishmentReportController extends Controller
         $sameMonth = $dateFrom->format('Y-m') === $dateTo->format('Y-m');
 
         $rangeLabel = $sameMonth
-            ? $dateFrom->format('F j') . '-' . $dateTo->format('j')
-            : $dateFrom->format('F j') . ' - ' . $dateTo->format('F j');
+            ? $dateFrom->format('F j').'-'.$dateTo->format('j')
+            : $dateFrom->format('F j').' - '.$dateTo->format('F j');
 
-        $filename = $preparedByUser->last_name . ' ' . $rangeLabel . ' Report.docx';
-        $tempFile = tempnam(sys_get_temp_dir(), 'dar') . '.docx';
+        $filename = ($preparedByUser?->last_name ?? 'Accomplishment').' '.$rangeLabel.' Report.docx';
+        $tempFile = tempnam(sys_get_temp_dir(), 'dar');
 
-        $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
         $writer->save($tempFile);
 
         return response()->download($tempFile, $filename)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Period heading, e.g. "May 1-7, 2026", "April 28 - May 3, 2026" or
+     * "December 28, 2025 - January 3, 2026".
+     */
+    private function rangeHeading(Carbon $from, Carbon $to): string
+    {
+        if ($from->isSameMonth($to)) {
+            $days = $from->isSameDay($to) ? $from->format('j') : $from->format('j').'-'.$to->format('j');
+
+            return $from->format('F').' '.$days.', '.$from->format('Y');
+        }
+
+        if ($from->isSameYear($to)) {
+            return $from->format('F j').' - '.$to->format('F j, Y');
+        }
+
+        return $from->format('F j, Y').' - '.$to->format('F j, Y');
     }
 }

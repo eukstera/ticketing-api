@@ -1,0 +1,31 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\NatureOfWork;
+use App\Models\TypeOfConcern;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\JsonResponse;
+
+class LookupController extends Controller
+{
+    use ApiResponseTrait;
+
+    public function concernTypes(): JsonResponse
+    {
+        $concernTypes = TypeOfConcern::where('status', true)->orderBy('id')->get(['id', 'label']);
+
+        return $this->success('Concern types retrieved successfully', [
+            'result' => ['concern_types' => $concernTypes],
+        ]);
+    }
+
+    public function natureOfWork(): JsonResponse
+    {
+        $natureOfWork = NatureOfWork::where('status', true)->orderBy('id')->get(['id', 'label']);
+
+        return $this->success('Nature of work retrieved successfully', [
+            'result' => ['nature_of_work' => $natureOfWork],
+        ]);
+    }
+}

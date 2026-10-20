@@ -2,76 +2,52 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\ListDesignationsRequest;
+use App\Http\Requests\ListEmployeesRequest;
+use App\Http\Requests\StoreDesignationRequest;
 use App\Models\Designation;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\JsonResponse;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
+    use ApiResponseTrait;
+
+    public function index(ListEmployeesRequest $request): JsonResponse
     {
-        $users = User::where('users.department_id', $request->user()->department_id)
-            ->join('designations', 'designations.id', 'users.designation_id')
-            ->select('users.id', 'users.department_id', 'first_name', 'last_name', 'designation', 'email')
+        $departmentId = $request->validated('department_id') ?? $request->user()->department_id;
+
+        $users = User::where('users.department_id', $departmentId)
+            ->where('users.status', true)
+            ->leftJoin('designations', 'designations.id', 'users.designation_id')
+            ->select('users.id', 'users.department_id', 'users.first_name', 'users.last_name', 'designations.designation')
+            ->orderBy('users.first_name')
+            ->orderBy('users.last_name')
             ->get();
 
-        return response()->json([
-            'message' => 'User retreived successfully',
-            'result' => [
-                'users' => $users
-            ]
-        ], 201);
-    }
-
-    public function getDesignations(Request $request)
-    {
-        $designations = Designation::where('department_id', $request->department_id)->get();
-
-        return response()->json([
-            'message' => 'Designations retreived successfully',
-            'result' => [
-                'designations' => $designations
-            ]
-        ], 201);
-    }
-
-    public function storeDesignation(Request $request)
-    {
-        Validator::extend('duplicate', function ($attribute, $value, $parameters, $validator) {
-            $departmentId = $parameters[0] ?? null;
-            return !Designation::where('department_id', $departmentId)
-                ->whereRaw('LOWER(designation) = ?', [strtolower(trim($value))])
-                ->exists();
-        });
-
-        Validator::replacer('duplicate', function ($message, $attribute, $rule, $parameters) {
-            return 'That designation already exists in this department.';
-        });
-
-        $validator = Validator::make($request->all(), [
-            'department_id' => 'required|integer|exists:departments,id',
-            'designation' => "required|string|max:100|duplicate:{$request->department_id}",
+        return $this->success('Users retrieved successfully', [
+            'result' => ['users' => $users],
         ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 200);
-        }
-
-        $designation = Designation::create([
-            'department_id' => $request->department_id,
-            'designation' => $request->designation
-        ]);
-
-        return response()->json([
-            'result' => [
-                'designation' => $designation,
-            ],
-        ], 201);
     }
 
+    public function getDesignations(ListDesignationsRequest $request): JsonResponse
+    {
+        $designations = Designation::where('department_id', $request->validated('department_id'))
+            ->where('status', true)
+            ->get();
+
+        return $this->success('Designations retrieved successfully', [
+            'result' => ['designations' => $designations],
+        ]);
+    }
+
+    public function storeDesignation(StoreDesignationRequest $request): JsonResponse
+    {
+        $designation = Designation::create($request->safe()->only(['department_id', 'designation']));
+
+        return $this->success('Designation created successfully', [
+            'result' => ['designation' => $designation],
+        ], 201);
+    }
 }
