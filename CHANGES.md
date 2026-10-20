@@ -45,6 +45,18 @@ result: { ticket: {
   created_at, updated_at } }
 ```
 
+### My profile
+
+Both routes require auth, are throttled to 10 requests per minute per user (429 beyond that), and use the standard envelope.
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| PATCH | /me | `first_name` (string, max 100), `last_name` (string, max 100). Both are optional; send at least one. | 200 `{ user: User }` (Phase 1 `User` shape) |
+| PATCH | /me/password | `current_password`, `password` (min 8, mixed case and a number, different from the current one), `password_confirmation` | 200 `{}`. A wrong `current_password` returns 422 with `errors.current_password`. |
+
+- `role_id`, `department_id`, `designation_id`, `status` and `email` are **not** editable through `/me`. If sent, they are ignored. Only admins can change them, through `/admin/users`.
+- A successful password change revokes all of the user's **other** tokens. The token used for the request stays valid.
+
 ### Comments
 
 `DELETE /tickets/comments/{comment}` deletes a comment. Only the author or an admin may do this; anyone else gets 403. On success it returns 200 `{ success, message, result: {} }`.
