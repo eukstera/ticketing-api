@@ -2,155 +2,172 @@
 
 namespace Database\Factories;
 
-use App\Models\DateCategory;
 use App\Models\Department;
-use App\Models\Device;
-use App\Models\NatureOfWork;
-use App\Models\Priority;
-use App\Models\Status;
 use App\Models\Ticket;
-use App\Models\TicketDateActivity;
-use App\Models\TicketEngineering;
-use App\Models\TicketIT;
-use App\Models\TypeOfConcern;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
+/**
+ * Builds tickets that need no pre-seeded data: every lookup row is
+ * created on demand. Unless withoutDetails() is used, a ticket also gets
+ * its IT/Engineering detail row and a Requested Date activity.
+ *
+ * @extends Factory<Ticket>
+ */
 class TicketFactory extends Factory
 {
+    protected $model = Ticket::class;
+
+    protected bool $withoutDetails = false;
+
+    /**
+     * @return array<string, mixed>
+     */
     public function definition(): array
     {
-        $ticket_number = now()->format('m') . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT) . '-' . now()->format('Y');
-        $department = Department::inRandomOrder()->first()->id;
         return [
-            'status_id' => Status::where('label', '!=', 'Overdue')->inRandomOrder()->first()->id,
-            'priority_id' => Priority::where('department_id', $department)->inRandomOrder()->first()->id,
-            // 'assigned_user' => User::inRandomOrder()->first()->id,
-            'ticket_number' => $ticket_number,
-            'department' => $department
+            'department' => fn () => Department::query()->orderBy('id')->value('id') ?? DepartmentFactory::new()->create()->id,
+            'status_id' => fn () => StatusFactory::labelled(StatusFactory::OPEN)->id,
+            'priority_id' => fn (array $attributes) => PriorityFactory::forDepartmentId($attributes['department'])->id,
+            'assigned_user' => null,
+            'ticket_number' => sprintf(
+                '%s-%03d-%s',
+                now()->format('m'),
+                fake()->unique()->numberBetween(1, 9999),
+                now()->format('Y'),
+            ),
         ];
     }
 
-    public function configure(): static
+    public function open(): static
     {
-        return $this->afterCreating(function (Ticket $ticket){
-            if($ticket->department === 1){
-
-                TicketIT::create([
-                    'ticket_id' => $ticket->id,
-                    // 'type_of_tech_support'  => fake()->randomElement([
-                    //     'Hardware',
-                    //     'Software',
-                    //     'Network',
-                    //     'System Access',
-                    //     'Email Issue',
-                    //     'Printer Issue'
-                    // ]),
-                    'type_of_concern' => TypeOfConcern::inRandomOrder()->first()->id,
-                    'name_of_area'          => fake()->randomElement([
-                        'Emergency Room',
-                        'OPD',
-                        'Nursing Station',
-                        'Pharmacy',
-                        'Laboratory',
-                        'Radiology',
-                        'Admin Office',
-                        'ICU',
-                        'Surgery Room'
-                    ]),
-                    'remarks' => fake()->sentence(8),
-                    'area_supervisor' => fake()->name()
-                ]);
-
-                Device::create([
-                'ticket_id'  => $ticket->id,
-                'device' => fake()->randomElement([
-                    'Monitor',
-                    'Printer',
-                    'Keyboard',
-                    'Mouse',
-                    'CPU',
-                    'Laptop',
-                    'Scanner',
-                    'UPS',
-                    'Router',
-                    'Switch'
-                ]),
-                'qty' => fake()->numberBetween(1, 10)
-                ]);
-
-            }else{
-                $natureOfWork = NatureOfWork::inRandomOrder()->first();
-                $other_nature_of_work = ($natureOfWork->label === 'Others') ? fake()->sentence(1) : null;
-                
-                TicketEngineering::create([
-                    'ticket_id' => $ticket->id,
-                    'nature_of_work' => $natureOfWork->id,
-                    'scope_of_work' => fake()->sentence(2),
-                    'other_nature_of_work' => $other_nature_of_work,
-                    'name_of_area'          => fake()->randomElement([
-                        'Emergency Room',
-                        'OPD',
-                        'Nursing Station',
-                        'Pharmacy',
-                        'Laboratory',
-                        'Radiology',
-                        'Admin Office',
-                        'ICU',
-                        'Surgery Room'
-                    ]),
-                    'area_supervisor' => fake()->name()
-                ]);
-            }
-
-            // for status
-            switch ($ticket->status_id) {
-                case 1:
-                    $this->generateDateActivity($ticket, 'Requested Date');
-                    break;
-                case 2:
-                    $this->generateDateActivity($ticket, 'Requested Date');
-                    $this->generateDateActivity($ticket, 'Assigned Date');
-                    break;
-                default:
-                    $this->generateDateActivity($ticket, 'Requested Date');
-                    $this->generateDateActivity($ticket, 'Assigned Date');
-                    $this->generateDateActivity($ticket, 'Completed Date');
-                    break;
-            }
-
-        });
-    }
-
-    public function generateDateActivity(Ticket $ticket, $category)
-    {
-        if($category == 'Requested Date'){
-            $user_id = null;
-            $requestor = fake()->name();
-        }else{
-            if($category == 'Completed Date'){
-                $assignedUser = 
-                TicketDateActivity::where('ticket_id', $ticket->id)
-                ->where('date_category_id', 2)
-                ->first();
-
-                $user_id = $assignedUser->user_id;
-            }else{
-                $user_id = User::inRandomOrder()->where('department_id', $ticket->department)->first()->id;
-
-                // Update assigned_user in tickets table
-                $ticket->update(['assigned_user' => $user_id]);
-            }
-            $requestor = null;
-        }
-
-        TicketDateActivity::create([
-            'ticket_id' => $ticket->id,
-            'date_category_id' => DateCategory::where('category', $category)->first()->id,
-            'user_id' => $user_id,
-            'requestor' => $requestor,
-            'requestorId' => 1 // id payload from request form
+        return $this->state(fn () => [
+            'status_id' => StatusFactory::labelled(StatusFactory::OPEN)->id,
+            'assigned_user' => null,
         ]);
     }
-}
 
+    /**
+     * In-progress, handled by $user in $user's department.
+     */
+    public function assigned(User $user): static
+    {
+        return $this->state(fn () => [
+            'status_id' => StatusFactory::labelled(StatusFactory::IN_PROGRESS)->id,
+            'assigned_user' => $user->id,
+            'department' => $user->department_id,
+        ]);
+    }
+
+    /**
+     * Completed by $by, or by a new user of the ticket's department when null.
+     * Chain after assigned() to keep that assignee.
+     */
+    public function completed(?User $by = null): static
+    {
+        return $this->state(fn () => array_filter([
+            'status_id' => StatusFactory::labelled(StatusFactory::COMPLETED)->id,
+            'assigned_user' => $by?->id,
+            'department' => $by?->department_id,
+        ]));
+    }
+
+    public function overdue(): static
+    {
+        return $this->state(fn () => [
+            'status_id' => StatusFactory::labelled(StatusFactory::OVERDUE)->id,
+        ]);
+    }
+
+    public function forDepartment(Department|int $department): static
+    {
+        $departmentId = $department instanceof Department ? $department->id : $department;
+
+        return $this->state(fn () => ['department' => $departmentId]);
+    }
+
+    /**
+     * Sets the request time; the Requested Date activity mirrors it.
+     */
+    public function requestedAt(Carbon|string $moment): static
+    {
+        $moment = Carbon::parse($moment);
+
+        return $this->state(fn () => ['created_at' => $moment, 'updated_at' => $moment]);
+    }
+
+    /**
+     * Skips the detail row, devices and Requested Date activity.
+     */
+    public function withoutDetails(): static
+    {
+        $clone = $this->newInstance();
+        $clone->withoutDetails = true;
+
+        return $clone;
+    }
+
+    protected function newInstance(array $arguments = [])
+    {
+        $instance = parent::newInstance($arguments);
+        $instance->withoutDetails = $this->withoutDetails;
+
+        return $instance;
+    }
+
+    protected function callAfterCreating(Collection $instances, ?Model $parent = null)
+    {
+        $instances->each(fn (Ticket $ticket) => $this->createRelatedRows($ticket));
+
+        parent::callAfterCreating($instances, $parent);
+    }
+
+    private function createRelatedRows(Ticket $ticket): void
+    {
+        if (! $this->withoutDetails) {
+            $this->createDetails($ticket);
+
+            TicketDateActivityFactory::new()->for($ticket, 'ticket')->requested()->create([
+                'created_at' => $ticket->created_at,
+                'updated_at' => $ticket->created_at,
+            ]);
+        }
+
+        $completedId = StatusFactory::labelled(StatusFactory::COMPLETED)->id;
+
+        if ($ticket->assigned_user === null && $ticket->status_id === $completedId) {
+            $ticket->forceFill([
+                'assigned_user' => UserFactory::new()->inDepartment($ticket->department)->create()->id,
+            ])->save();
+        }
+
+        if ($ticket->assigned_user === null) {
+            return;
+        }
+
+        $assignee = User::query()->find($ticket->assigned_user);
+
+        TicketDateActivityFactory::new()->for($ticket, 'ticket')->assigned($assignee)->create();
+
+        if ($ticket->status_id === $completedId) {
+            TicketDateActivityFactory::new()->for($ticket, 'ticket')->completed($assignee)->create();
+        }
+    }
+
+    private function createDetails(Ticket $ticket): void
+    {
+        $isEngineering = Department::query()->whereKey($ticket->department)->value('department') === 'Engineering';
+
+        if ($isEngineering) {
+            TicketEngineeringFactory::new()->state(['ticket_id' => $ticket->id])->create();
+
+            return;
+        }
+
+        TicketITFactory::new()->state(['ticket_id' => $ticket->id])->create();
+        DeviceFactory::new()->state(['ticket_id' => $ticket->id])->create();
+    }
+}
