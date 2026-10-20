@@ -56,6 +56,8 @@ Every route in this section requires the `admin` gate, meaning the caller's role
 | Concern types | `GET/POST /admin/concern-types`, `PATCH/DELETE /admin/concern-types/{id}` | label, status |
 | Nature of work | `GET/POST /admin/nature-of-work`, `PATCH/DELETE /admin/nature-of-work/{id}` | label, status |
 
+**Reactivate:** `PATCH` with `{ status: true }` reactivates any deactivated row (users, roles, departments, designations, priorities, concern types, nature of work). Admin list endpoints accept `?status=active|inactive|all` (default `all`). Deactivated rows are excluded from the public and lookup endpoints (`/designations`, `/priority`, `/lookups/*`, `/employees`). A deactivated user cannot log in (403).
+
 Admin resource shapes are `{ id, name|label|level..., status: boolean, created_at, updated_at }`. A user row uses the Phase 1 `User` shape.
 
 ## 2026-10-20 — Phase 1 (stabilize): decisions and API contract
