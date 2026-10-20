@@ -1,5 +1,83 @@
 # Changes
 
+## 2026-10-20 — Phase 1 (stabilize): decisions and API contract
+
+### Decisions (user-approved)
+
+- **Admin:** the role named "Department Head" is the admin, checked by role name through Gate `admin`, never by id. Admin rights are currently GLOBAL, meaning not scoped to the head's own department; this may be narrowed later. No existing user's `role_id` is changed.
+- **Registration:** public `POST /register` is removed. Accounts are created through `POST /admin/users` (admin only).
+- **Assignment:** any member of the ticket's handling department (`tickets.department`) may assign the ticket to any member of that department, including themselves ("take ticket"). Completed tickets cannot be assigned. A reassignment updates the existing Assigned activity instead of adding a new row. `tickets.assigned_user` is kept in sync.
+- **Tokens:** Sanctum tokens expire after 7 days.
+- **CORS:** allowed origins come from `CORS_ALLOWED_ORIGINS` (comma-separated). The dev defaults are `http://localhost:3000` and `https://snaking-easing-mystify.ngrok-free.dev`. `Content-Disposition` is exposed and credentials are false. The prod origin is set on deploy.
+- **Migrations:** additive only. The dev database was backed up with mysqldump to `storage/app/backups/` (gitignored) before the first migrate.
+
+### Known risks (accepted by user)
+
+- `POST /saveTicketIT`, `POST /saveTicketEngineering` and `GET /getTicketRequests` stay public and unchanged. `getTicketRequests?requestorId=` lets anyone read any requestor's tickets (IDOR). The ticket-number lock and the unique index still apply to these routes.
+
+### API contract (Phase 1)
+
+All routes are prefixed with `/api`. Protected routes require the `Authorization: Bearer <token>` header.
+
+**Envelope**
+- Success: `{ success: true, message: string, result: {...} }`. Reads return 200 and creates return 201.
+- Error: `{ success: false, message: string, errors?: { field: string[] } }`.
+  - 401: unauthenticated or expired token. The frontend should clear the token and redirect to login.
+  - 403: forbidden (policy or gate).
+  - 404: not found.
+  - 409: invalid state, such as assigning or completing a completed ticket.
+  - 422: validation, with `errors`.
+  - 429: throttled.
+
+**Auth**
+
+| Method | Path | Auth | Params | Response `result` |
+|---|---|---|---|---|
+| POST | /login | public, throttled to 5/min per email+IP | `email`, `password` | `{ user: User, token: string, expires_at: ISO8601 }` |
+| POST | /logout | bearer | none | `{}` (revokes the current token) |
+| GET | /me | bearer | none | `{ user: User }` |
+| POST | /admin/users | admin | `first_name`, `last_name`, `email` (unique), `password` (min 8), `department_id`, `designation_id` (in that department), `role_id` | 201 `{ user: User }` |
+| ~~POST~~ | ~~/register~~ | none | none | **removed** |
+
+`User` shape, used by `/me`, `/login` and `/admin/users`:
+```
+{ id: number, first_name, last_name, email, status: boolean,
+  department_id: number, designation_id: number,
+  role: { id: number, name: string },          // name is "Normal User" | "Department Head"
+  department: { id, name }, designation: { id, name } }
+```
+The frontend checks admin rights with `user.role.name === "Department Head"`.
+
+**Lookups**
+
+| Method | Path | Auth | Params | Response `result` |
+|---|---|---|---|---|
+| GET | /designations | public | `department_id` (required, exists) | `{ designations: [{ id, department_id, designation, status: boolean }] }` (200, was 201) |
+| POST | /designations | admin | `department_id`, `designation` | 201 `{ designation }` |
+| GET | /priority | bearer | `department_id` (optional, defaults to the caller's department) | `{ priorities: [{ id, level, sla_days: number, department_id: number }] }` (was a bare array) |
+| GET | /lookups/concern-types | bearer | none | `{ concern_types: [{ id, label }] }` (active only) |
+| GET | /lookups/nature-of-work | bearer | none | `{ nature_of_work: [{ id, label }] }` (active only) |
+| GET | /employees | bearer | `department_id` (optional, defaults to the caller's department) | `{ users: [...] }` (same row shape as before, now 200 instead of 201). Users without a designation are included, and email is removed. |
+
+**Tickets**
+
+| Method | Path | Auth | Params | Notes |
+|---|---|---|---|---|
+| POST | /saveRequestTicketIT | bearer | as before, plus `exists:` rules on priority, service_department and assigned_user. `devices` is optional for non-Hardware concerns. | 201. Validation errors return 422. |
+| POST | /tickets/{ticket}/assign | bearer, member of the ticket's handling department | `user_id` (exists, same department as the ticket; may be the caller, for "take ticket") | 200 `{ ticket }`. Completed tickets return 409. |
+| POST | /tickets/{ticket}/complete | bearer, the assignee or a member of the handling department | none | 200 `{ ticket }`. Unassigned or already-completed tickets return 409. |
+| GET | /tickets/{ticket}/comments | bearer, member of the handling department or the requester | none | 200 (was 201) |
+| POST | /tickets/{ticket}/comments | same as GET | `comment` (max 2000) | 201 `{ comment }` |
+| PATCH | /tickets/comments/{comment} | bearer, author only | `comment` | 200 `{ comment }`. A non-author gets 403 (was 200). |
+| GET | /dashboard | bearer | `date` (`Y-m`, validated; a bad value returns 422), `priority` (optional, now applied as a filter) | shape unchanged |
+| GET | /overdueTickets | bearer | none | read-only now, `{ ticket: number }` count unchanged |
+| GET | /reports/accomplishment | bearer | `date_from`, `date_to` (on or after date_from), `user_id` (admin only, defaults to self) | `.docx`. `Content-Disposition` is now readable. Another user's id returns 403 for non-admins. |
+
+**Shape changes**
+- The comment `user` is always `{ id, first_name, last_name }` on index, create and update.
+- Casts: `status` fields are booleans, ids are numbers, and `priority.sla_days` is an int.
+- The overdue status is set by the scheduled command `tickets:promote-overdue` (every 5 minutes), no longer per request.
+
 ## 2026-10-20 — Baseline health scan
 
 Read-only audit by the API team (be-apicoder, be-coder, be-coder2). No code or database changes were made.
