@@ -1,5 +1,63 @@
 # Changes
 
+## 2026-10-20 — Phase 2 (features): API contract (spec, not yet implemented)
+
+These routes are bearer-auth and use the Phase 1 envelope and error codes.
+
+### (a) Search and filters on ticket lists
+
+These apply to `GET /getDepartmentTickets` and `GET /getMyTickets`. All params are optional, and the existing ones keep working.
+
+| Param | Type | Behavior |
+|---|---|---|
+| `search` | string | Matches `ticket_number`, `name_of_area`, requester full name, and concern (type of concern or nature of work). Case-insensitive `LIKE`. |
+| `status` | int (status id) | as today |
+| `priority` | int (priority id) | as today |
+| `date_from`, `date_to` | `Y-m-d` | Filters on the requested date (Requested Date activity), inclusive. `date_to` must be on or after `date_from`. |
+| `page` | int | as today |
+| `per_page` | int | 1–100, default 10 |
+| `sort` | `requested_at` \| `ticket_number` \| `priority` \| `status` | default `requested_at` |
+| `dir` | `asc` \| `desc` | default `desc` |
+
+The response shape is unchanged: a paginator plus `status_counts`, `priority_counts` and `priority_sla`. Counts respect `search` and the date range but not `status`, so the tab badges stay meaningful.
+
+### (b) Ticket detail
+
+`GET /tickets/{ticket}`. Allowed for members of the ticket's handling department, the requester, or an admin. Otherwise 403; an unknown ticket returns 404.
+```
+result: { ticket: {
+  id, ticket_number, department: { id, name }, status: { id, label }, priority: { id, level, sla_days },
+  type: "IT" | "Engineering",
+  details: { ...IT fields (type_of_concern, type_of_tech_support, remarks, devices: [{ name, qty }])
+             | Engineering fields (nature_of_work, other_nature_of_work, name_of_area, ...) },
+  requester: { id, first_name, last_name } | { name: string },   // requestor portal tickets carry text only
+  assignee: { id, first_name, last_name } | null,
+  is_overdue: boolean, due_at: ISO8601 | null,
+  timeline: [{ id, category: "Requested Date" | "Assigned Date" | "Completed Date", user: string | null, created_at }],
+  comments: [{ id, comment, user: { id, first_name, last_name }, created_at, updated_at }],
+  created_at, updated_at } }
+```
+
+### Comments
+
+`DELETE /tickets/comments/{comment}` deletes a comment. Only the author or an admin may do this; anyone else gets 403. On success it returns 200 `{ success, message, result: {} }`.
+
+### (c) Admin CRUD
+
+Every route in this section requires the `admin` gate, meaning the caller's role is "Department Head"; anyone else gets 403. Lists are paginated with `?page`, `per_page` (default 15) and `search`, and the paginator sits under `result.<plural>`. `DELETE` is a **soft deactivate** (`status=false`), because existing tickets reference these rows. It returns 200, and creates return 201.
+
+| Resource | Routes | Writable fields |
+|---|---|---|
+| Users | `GET/POST /admin/users`, `GET/PATCH /admin/users/{user}`, `DELETE /admin/users/{user}` (deactivates the user and revokes their tokens) | first_name, last_name, email, password (optional on PATCH), department_id, designation_id, role_id, status |
+| Roles | `GET /roles` (bearer, any user: `{ roles: [{ id, name }] }`), `POST /admin/roles`, `PATCH /admin/roles/{role}`, `DELETE /admin/roles/{role}` | name. The "Department Head" role cannot be renamed or deleted (409). |
+| Departments | `GET/POST /admin/departments`, `PATCH/DELETE /admin/departments/{department}` | name, status |
+| Designations | `GET /admin/designations?department_id`, `PATCH/DELETE /admin/designations/{designation}` (create stays `POST /designations`) | designation, department_id, status |
+| Priorities | `GET/POST /admin/priorities`, `PATCH/DELETE /admin/priorities/{priority}` | level, sla_days (int ≥ 0), department_id, status |
+| Concern types | `GET/POST /admin/concern-types`, `PATCH/DELETE /admin/concern-types/{id}` | label, status |
+| Nature of work | `GET/POST /admin/nature-of-work`, `PATCH/DELETE /admin/nature-of-work/{id}` | label, status |
+
+Admin resource shapes are `{ id, name|label|level..., status: boolean, created_at, updated_at }`. A user row uses the Phase 1 `User` shape.
+
 ## 2026-10-20 — Phase 1 (stabilize): decisions and API contract
 
 ### Decisions (user-approved)
