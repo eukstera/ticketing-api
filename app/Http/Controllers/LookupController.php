@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\NatureOfWork;
 use App\Models\TypeOfConcern;
 use App\Traits\ApiResponseTrait;
@@ -26,6 +27,18 @@ class LookupController extends Controller
 
         return $this->success('Nature of work retrieved successfully', [
             'result' => ['nature_of_work' => $natureOfWork],
+        ]);
+    }
+
+    public function departments(): JsonResponse
+    {
+        $departments = Department::where('status', true)
+            ->orderBy('id')
+            ->get(['id', 'department'])
+            ->map(fn (Department $department) => ['id' => $department->id, 'name' => $department->department]);
+
+        return $this->success('Departments retrieved successfully', [
+            'result' => ['departments' => $departments],
         ]);
     }
 }

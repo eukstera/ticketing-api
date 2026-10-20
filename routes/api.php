@@ -30,6 +30,7 @@ Route::middleware('auth:sanctum')->group(function(){
     // lookup lists for ticket forms
     Route::get('/lookups/concern-types', [LookupController::class, 'concernTypes']);
     Route::get('/lookups/nature-of-work', [LookupController::class, 'natureOfWork']);
+    Route::get('/lookups/departments', [LookupController::class, 'departments']);
 
     // fetch all data for dashboard display
     Route::get('/dashboard', [TicketingController::class, 'getDashboardStats']);
