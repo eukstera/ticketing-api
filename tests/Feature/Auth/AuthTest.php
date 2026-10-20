@@ -5,6 +5,7 @@ namespace Tests\Feature\Auth;
 use App\Models\User;
 use Database\Factories\UserFactory;
 use Illuminate\Support\Carbon;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\ApiTestCase;
 
 class AuthTest extends ApiTestCase
@@ -240,6 +241,7 @@ class AuthTest extends ApiTestCase
         $this->getJson('/api/admin/users')->assertUnauthorized();
     }
 
+    #[Group('phase2')]
     public function test_admin_can_list_users_with_pagination(): void
     {
         $this->actingAsAdmin();
@@ -252,6 +254,7 @@ class AuthTest extends ApiTestCase
             ->assertJsonPath('result.users.total', 4);
     }
 
+    #[Group('phase2')]
     public function test_admin_can_deactivate_a_user_and_revoke_their_tokens(): void
     {
         $this->actingAsAdmin();

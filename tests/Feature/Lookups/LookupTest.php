@@ -5,6 +5,7 @@ namespace Tests\Feature\Lookups;
 use App\Models\NatureOfWork;
 use App\Models\Priority;
 use App\Models\TypeOfConcern;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\ApiTestCase;
 
 class LookupTest extends ApiTestCase
@@ -78,6 +79,7 @@ class LookupTest extends ApiTestCase
         $this->getJson('/api/lookups/nature-of-work')->assertUnauthorized();
     }
 
+    #[Group('phase2')]
     public function test_roles_are_listed_for_any_authenticated_user(): void
     {
         $this->actingAsUser();

@@ -6,6 +6,7 @@ use App\Models\Comment;
 use App\Models\TicketDateActivity;
 use Database\Factories\CommentFactory;
 use Database\Factories\TicketFactory;
+use PHPUnit\Framework\Attributes\Group;
 use Tests\ApiTestCase;
 
 class CommentTest extends ApiTestCase
@@ -148,6 +149,7 @@ class CommentTest extends ApiTestCase
             ->assertJsonValidationErrors(['comment']);
     }
 
+    #[Group('phase2')]
     public function test_author_can_delete_their_comment(): void
     {
         $author = $this->actingAsUser($this->itUser());
@@ -160,6 +162,7 @@ class CommentTest extends ApiTestCase
         $this->assertNull(Comment::find($comment->id));
     }
 
+    #[Group('phase2')]
     public function test_admin_can_delete_any_comment(): void
     {
         $this->actingAsAdmin();
@@ -170,6 +173,7 @@ class CommentTest extends ApiTestCase
         $this->assertNull(Comment::find($comment->id));
     }
 
+    #[Group('phase2')]
     public function test_other_users_cannot_delete_a_comment(): void
     {
         $this->actingAsUser($this->itUser());
