@@ -89,6 +89,8 @@ Admin resource shapes are `{ id, name|label|level..., status: boolean, created_a
   - The migration's `down()` drops only the index.
 - `tickets:promote-overdue` was run once to verify it. It promoted 22 tickets to Overdue, the same change the old middleware would have made on the next request.
 
+- A dev-only account was created for the user by request (user id 13).
+
 ### Behavior changes
 
 - Ticket number sequence: the number has no department in it, so IT and Engineering would collide under the new unique index. The sequence is now **global per year and month** (new `ticket_sequences` table), and `TicketNumberGenerator::generate()` ignores its department argument. The `MM-XXX-YYYY` format with 3-digit padding is unchanged. The next dev ticket will be `10-1002-2026`.
