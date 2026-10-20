@@ -252,18 +252,12 @@ class TicketingController extends Controller
 
     public function overdueTickets(Request $request)
     {
-        $ticket = 
-        Ticket::join('ticket_date_activities as td', function ($join) {
-            $join->on('td.ticket_id', 'tickets.id')
-                ->where('td.date_category_id', 1);
-        })
-        ->join('priority', 'priority.id', 'tickets.priority_id')
-        ->whereIn('tickets.status_id', [1, 2])
-        ->whereRaw('DATEDIFF(NOW(), td.created_at) >= priority.sla')
-        ->update(['tickets.status_id' => 4]);
+        $overdue = Ticket::where('department', $request->user()->department_id)
+            ->whereHas('ticketStatus', fn ($query) => $query->where('label', 'Overdue'))
+            ->count();
 
         return response()->json([
-            'ticket' => $ticket
+            'ticket' => $overdue
         ]);
     }
 
