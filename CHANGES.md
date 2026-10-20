@@ -75,6 +75,24 @@ Every route in this section requires the `admin` gate, meaning the caller's role
 | Concern types | `GET/POST /admin/concern-types`, `PATCH/DELETE /admin/concern-types/{id}` | label, status |
 | Nature of work | `GET/POST /admin/nature-of-work`, `PATCH/DELETE /admin/nature-of-work/{id}` | label, status |
 
+**List conventions (confirmed for the frontend):**
+- Result keys: `result.users`, `result.roles`, `result.departments`, `result.designations`, `result.priorities`, `result.concern_types`, `result.nature_of_work`.
+- Each key holds a Laravel paginator: `{ data: [...], current_page, last_page, per_page, total, from, to, links, ... }`. The frontend may rely on `data`, `current_page`, `last_page`, `per_page` and `total`.
+- Query params on every admin list:
+  - `search` (case-insensitive, matched on the name, label or level field; for users, on first name, last name or email)
+  - `status=active|inactive|all`. Omitting `status` is the same as `all`.
+  - `page`
+  - `per_page` (1–100, default 15)
+- `/admin/designations` and `/admin/priorities` also accept an optional `department_id` filter.
+- Row shapes:
+  - designation `{ id, designation, department_id, status }`
+  - priority `{ id, level, sla_days, department_id, status }` (`level` is text)
+  - department `{ id, name, status }`
+  - role `{ id, name, status }`
+  - concern type and nature of work `{ id, label, status }`
+  - admin user rows use the Phase 1 `User` shape: `department { id, name }`, `designation { id, name }`, `role { id, name }`
+- `GET /lookups/departments` (any authenticated user, active only) returns `{ departments: [{ id, name }] }`. Use it for department dropdowns, including on admin screens.
+
 **Status on PATCH:** every admin resource accepts `status` (boolean) on `PATCH`.
 
 **Reactivate:** `PATCH` with `{ status: true }` reactivates any deactivated row (users, roles, departments, designations, priorities, concern types, nature of work). Admin list endpoints accept `?status=active|inactive|all` (default `all`). Deactivated rows are excluded from the public and lookup endpoints (`/designations`, `/priority`, `/lookups/*`, `/employees`). A deactivated user cannot log in (403).
