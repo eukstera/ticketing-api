@@ -138,6 +138,13 @@ Admin resource shapes are `{ id, name|label|level..., status: boolean, created_a
 - Ticket number sequence: the number has no department in it, so IT and Engineering would collide under the new unique index. The sequence is now **global per year and month** (new `ticket_sequences` table), and `TicketNumberGenerator::generate()` ignores its department argument. The `MM-XXX-YYYY` format with 3-digit padding is unchanged. The next dev ticket will be `10-1002-2026`.
 - New `cache` and `cache_locks` tables, needed by the scheduler's `withoutOverlapping()`. `sessions`, `jobs` and `password_reset_tokens` are still missing; they're unused by the bearer-token API.
 
+- 2026-10-21: the dev CORS origin `http://192.168.117.86:3000` (LAN frontend) was added to `.env` and `.env.example`, by user request.
+
+### Dev serving notes
+
+- This repo is served by `php artisan serve` on `127.0.0.1:8000`, so it is reachable only from this machine. For LAN access, run `php artisan serve --host=0.0.0.0 --port=8000` and allow port 8000 through the Windows firewall. The API is then at `http://192.168.117.86:8000/api`.
+- The Laragon vhost `TicketingSystem-API.gbtrghsc.dev` (nginx ports 90 and 443) points at a **different copy**, `C:/laragon/www/TicketingSystem-API`, not this repo. It does not serve this code.
+
 ### Known risks (accepted by user)
 
 - `POST /saveTicketIT`, `POST /saveTicketEngineering` and `GET /getTicketRequests` stay public and unchanged. `getTicketRequests?requestorId=` lets anyone read any requestor's tickets (IDOR). The ticket-number lock and the unique index still apply to these routes.
