@@ -2,72 +2,78 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StoreCommentRequest;
+use App\Http\Requests\UpdateCommentRequest;
+use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Ticket;
+use App\Traits\ApiResponseTrait;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class CommentController extends Controller
 {
-    public function index(Ticket $ticket)
+    use ApiResponseTrait;
+
+    public function index(Request $request, Ticket $ticket): JsonResponse
     {
+        if (Gate::forUser($request->user())->denies('viewComments', $ticket)) {
+            return $this->forbidden();
+        }
+
         $comments = Comment::where('ticket_id', $ticket->id)
             ->with('user:id,first_name,last_name')
             ->orderBy('created_at', 'asc')
+            ->orderBy('id', 'asc')
             ->get();
 
-        return response()->json([
-            'message' => 'Comments retreived',
+        return $this->success('Comments retrieved', [
             'result' => [
-                'comments' => $comments
-            ]
-        ], 201);
+                'comments' => CommentResource::collection($comments)->resolve($request),
+            ],
+        ]);
     }
 
-    public function store(Request $request, Ticket $ticket)
+    public function store(StoreCommentRequest $request, Ticket $ticket): JsonResponse
     {
-        $validated = $request->validate([
-            'comment' => 'required|string'
-        ]);
+        if (Gate::forUser($request->user())->denies('comment', $ticket)) {
+            return $this->forbidden();
+        }
 
         $comment = Comment::create([
             'ticket_id' => $ticket->id,
-            'user_id'   => $request->user()->id,
-            'comment'   => $validated['comment']
+            'user_id' => $request->user()->id,
+            'comment' => $request->validated('comment'),
         ]);
 
         $comment->load('user:id,first_name,last_name');
 
-        return response()->json([
-            'message' => 'Comment added',
+        return $this->success('Comment added', [
             'result' => [
-                'comment' => $comment
-            ]
+                'comment' => (new CommentResource($comment))->resolve($request),
+            ],
         ], 201);
     }
 
-    public function updateComment(Request $request, Comment $comment)
+    public function updateComment(UpdateCommentRequest $request, Comment $comment): JsonResponse
     {
-        $validated = $request->validate([
-            'comment' => 'required|string|max:2000',
-        ]);
-
-        // $comment = Comment::where('ticket_id', $ticketId)->findOrFail($commentId);
-
-        // Only the author can edit their own comment
-        if ($comment->user_id !== $request->user()->id) {
-            return response()->json([
-                'message' => 'You can only edit your own comments.',
-            ], 200);
+        if (Gate::forUser($request->user())->denies('update', $comment)) {
+            return $this->forbidden('You can only edit your own comments.');
         }
 
-        $comment->update([
-            'comment' => $validated['comment'],
-        ]); 
+        $comment->update(['comment' => $request->validated('comment')]);
+        $comment->load('user:id,first_name,last_name');
 
-        return response()->json([
+        return $this->success('Comment updated', [
             'result' => [
-                'comment' => $comment->fresh()->load('user'),
+                'comment' => (new CommentResource($comment))->resolve($request),
             ],
-        ], 200);
+        ]);
+    }
+
+    private function forbidden(string $message = 'You are not allowed to access this ticket.'): JsonResponse
+    {
+        return $this->error($message, 403);
     }
 }
