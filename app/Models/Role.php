@@ -8,6 +8,16 @@ class Role extends Model
 {
     protected $fillable = [
         'role',
-        'status'
+        'status',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => 'boolean',
+        ];
+    }
 }

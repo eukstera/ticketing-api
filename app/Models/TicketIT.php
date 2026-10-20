@@ -4,11 +4,12 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TicketIT extends Model
 {
     use HasFactory;
-    
+
     protected $table = 'tickets_it';
 
     protected $fillable = [
@@ -18,6 +19,22 @@ class TicketIT extends Model
         'name_of_area',
         'remarks',
         'area_supervisor',
-        'status'
+        'status',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'ticket_id' => 'integer',
+            'status' => 'boolean',
+        ];
+    }
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class);
+    }
 }

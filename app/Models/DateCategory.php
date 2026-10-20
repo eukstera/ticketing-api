@@ -10,7 +10,7 @@ class DateCategory extends Model
 
     protected $fillable = [
         'category',
-        'status'
+        'status',
     ];
 
     public function ticketDateActivities()
@@ -18,4 +18,13 @@ class DateCategory extends Model
         return $this->hasMany(TicketDateActivity::class);
     }
 
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => 'boolean',
+        ];
+    }
 }

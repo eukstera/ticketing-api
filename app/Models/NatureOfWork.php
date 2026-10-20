@@ -10,6 +10,16 @@ class NatureOfWork extends Model
 
     protected $fillable = [
         'label',
-        'status'
+        'status',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'status' => 'boolean',
+        ];
+    }
 }

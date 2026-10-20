@@ -14,8 +14,24 @@ class TicketDateActivity extends Model
         'user_id',
         'requestor',
         'requestorId',
-        'status'
+        'status',
     ];
+
+    /**
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'ticket_id' => 'integer',
+            'date_category_id' => 'integer',
+            'user_id' => 'integer',
+            'requestorId' => 'integer',
+            'status' => 'boolean',
+            'created_at' => 'datetime',
+            'updated_at' => 'datetime',
+        ];
+    }
 
     public function dateCategory()
     {
@@ -45,8 +61,7 @@ class TicketDateActivity extends Model
     {
         $array = parent::toArray();
         $array['user'] = $this->display_name;
+
         return $array;
     }
-
-
 }
