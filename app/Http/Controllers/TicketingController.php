@@ -2,6 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\AssignTicketRequest;
+use App\Http\Requests\DashboardRequest;
+use App\Http\Requests\ListPriorityRequest;
+use App\Http\Requests\SaveRequestTicketITRequest;
+use App\Http\Resources\PriorityResource;
 use App\Models\Comment;
 use App\Models\DateCategory;
 use App\Models\Department;
@@ -15,11 +20,12 @@ use App\Models\TicketEngineering;
 use App\Models\TicketIT;
 use App\Models\TypeOfConcern;
 use App\Services\TicketNumberGenerator;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use App\Traits\ApiResponseTrait;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Validator;
 
 class TicketingController extends Controller
 {
@@ -28,118 +34,82 @@ class TicketingController extends Controller
     public function saveTicketIT(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
         $validator = Validator::make($request->all(), [
-            'service_department' => 'required',
+            'service_department' => 'required|integer|exists:departments,id',
             'area_supervisor' => 'required',
             'type_of_concern' => 'required',
-            'devices' => 'sometimes|array',
+            'devices' => 'nullable|array|required_if:type_of_concern,Hardware',
             'devices.*.type' => 'required|string',
             'devices.*.quantity' => 'required|integer|min:1',
             'name_of_area' => 'required',
             'remarks' => 'required',
-            'priority' => 'required',
+            'priority' => 'required|integer|exists:priority,id',
             'requestor' => 'required',
-            'requestor_meta.id' => 'required'
+            'requestor_meta.id' => 'required',
         ]);
-
-        $validator->sometimes('devices', 'required', function ($input) {
-            return $input->type_of_concern === 'Hardware';
-        });
-
-        if($validator->fails()){
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 200);
-        }
-
-        $ticket = Ticket::create([
-            'status_id' => 1, // Open
-            'priority_id' => $request->priority,
-            'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
-            'department' => $request->service_department
-        ]);
-
-        $typeOfConcern = TypeOfConcern::firstOrCreate([
-            'label' => $request->type_of_concern
-        ]);
-
-        TicketIT::create([
-            'ticket_id' => $ticket->id,
-            'type_of_concern' => $typeOfConcern->id,
-            'name_of_area' => $request->name_of_area,
-            'remarks' => $request->remarks,
-            'area_supervisor' => $request->area_supervisor
-        ]);
-
-        $devices = array_map(fn($device) => [
-            'ticket_id'  => $ticket->id,
-            'device'     => $device['type'],
-            'qty'        => $device['quantity'],
-            'created_at' => now(),
-            'updated_at' => now(),
-        ], $request->devices);
-
-        Device::insert($devices);
-
-        TicketDateActivity::create([
-            'ticket_id' => $ticket->id,
-            'date_category_id' => 1, // Requested Date
-            'requestor' => $request->requestor,
-            'requestorId' => $request->requestor_meta['id']
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Ticket saved',
-            'result' => [
-                'ticket' => $ticket
-            ]
-        ], 201);
-
-    }
-
-
-
-    // for saving of sir Leandro
-    public function saveRequestTicketIT(Request $request, TicketNumberGenerator $ticketNumberGenerator)
-    {
-        $validator = Validator::make($request->all(), [
-            'service_department' => 'required',
-            'area_supervisor' => 'required',
-            'type_of_concern' => 'required',
-            'devices' => 'sometimes|array',
-            'devices.*.type' => 'required|string',
-            'devices.*.quantity' => 'required|integer|min:1',
-            'name_of_area' => 'required',
-            'remarks' => 'required',
-            'assigned_user' => 'required',
-            'priority' => 'required',
-            'requestor' => 'required'
-        ]);
-
-        $validator->sometimes('devices', 'required', function ($input) {
-            return $input->type_of_concern === 'Hardware';
-        });
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 200);
+            return $this->error('Validation failed', 422, $validator->errors());
         }
 
+        $ticket = DB::transaction(function () use ($request, $ticketNumberGenerator) {
+            $ticket = $this->createItTicket($request, $ticketNumberGenerator, 1); // Open
+
+            TicketDateActivity::create([
+                'ticket_id' => $ticket->id,
+                'date_category_id' => 1, // Requested Date
+                'requestor' => $request->requestor,
+                'requestorId' => $request->requestor_meta['id'],
+            ]);
+
+            return $ticket;
+        });
+
+        return $this->success('Ticket saved', ['result' => ['ticket' => $ticket]], 201);
+    }
+
+    // for saving of sir Leandro
+    public function saveRequestTicketIT(SaveRequestTicketITRequest $request, TicketNumberGenerator $ticketNumberGenerator)
+    {
+        $ticket = DB::transaction(function () use ($request, $ticketNumberGenerator) {
+            $ticket = $this->createItTicket($request, $ticketNumberGenerator, 2, $request->assigned_user); // In-progress
+
+            TicketDateActivity::create([
+                'ticket_id' => $ticket->id,
+                'date_category_id' => 1, // Requested Date
+                'user_id' => $request->user()->id, // Sir Drew for direct management of tech suport
+                'requestor' => $request->requestor,
+            ]);
+
+            // Assigned to
+            TicketDateActivity::create([
+                'ticket_id' => $ticket->id,
+                'date_category_id' => 2, // Assigned Date
+                'user_id' => $request->assigned_user,
+                'requestor' => null,
+            ]);
+
+            return $ticket;
+        });
+
+        return $this->success('Ticket saved', ['result' => ['ticket' => $ticket]], 201);
+    }
+
+    /**
+     * Creates the ticket, its IT detail row and devices. Must run inside the
+     * caller's transaction so the ticket number lock covers the insert.
+     */
+    private function createItTicket(Request $request, TicketNumberGenerator $ticketNumberGenerator, int $statusId, ?int $assignedUser = null): Ticket
+    {
         $ticket = Ticket::create([
-            'status_id' => 2, // Assigned
+            'status_id' => $statusId,
             'priority_id' => $request->priority,
-            'assigned_user' => $request->assigned_user,
+            'assigned_user' => $assignedUser,
             'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
-            'department' => $request->service_department
+            'department' => $request->service_department,
         ]);
 
         $typeOfConcern = TypeOfConcern::firstOrCreate([
-            'label' => $request->type_of_concern
+            'label' => $request->type_of_concern,
         ]);
 
         TicketIT::create([
@@ -147,108 +117,75 @@ class TicketingController extends Controller
             'type_of_concern' => $typeOfConcern->id,
             'name_of_area' => $request->name_of_area,
             'remarks' => $request->remarks,
-            'area_supervisor' => $request->area_supervisor
+            'area_supervisor' => $request->area_supervisor,
         ]);
 
-        $devices = array_map(fn($device) => [
-            'ticket_id'  => $ticket->id,
-            'device'     => $device['type'],
-            'qty'        => $device['quantity'],
+        $devices = array_map(fn ($device) => [
+            'ticket_id' => $ticket->id,
+            'device' => $device['type'],
+            'qty' => $device['quantity'],
             'created_at' => now(),
             'updated_at' => now(),
-        ], $request->devices);
+        ], $request->input('devices') ?? []);
 
-        Device::insert($devices);
+        if ($devices !== []) {
+            Device::insert($devices);
+        }
 
-        TicketDateActivity::create([
-            'ticket_id' => $ticket->id,
-            'date_category_id' => 1, // Requested Date
-            'user_id' => $request->user()->id, // Sir Drew for direct management of tech suport 
-            'requestor' => $request->requestor
-        ]);
-
-        // Assigned to
-        TicketDateActivity::create([
-            'ticket_id' => $ticket->id,
-            'date_category_id' => 2, // Assigned Date
-            'user_id' => $request->assigned_user, // Sir Drew for direct management of tech suport 
-            'requestor' => null
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Ticket saved',
-            'result' => [
-                'ticket' => $ticket
-            ]
-        ], 201);
+        return $ticket;
     }
-
 
     public function saveTicketEngineering(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
         $validator = Validator::make($request->all(), [
-            'service_department' => 'required',
+            'service_department' => 'required|integer|exists:departments,id',
             'area_supervisor' => 'nullable',
             'nature_of_work' => 'required',
             'scope_of_work' => 'required', // Remarks
-            'other_nature_of_work' => 'sometimes', // required if nature_of_work = Others
+            'other_nature_of_work' => 'required_if:nature_of_work,Others',
             'name_of_area' => 'required',
-            'priority' => 'required',
+            'priority' => 'required|integer|exists:priority,id',
             'requestor' => 'required',
-            'requestor_meta.id' => 'required'
+            'requestor_meta.id' => 'required',
         ]);
-
-        $validator->sometimes('other_nature_of_work', 'required', function ($input) {
-            return $input->service_department === 'Engineering' && $input->nature_of_work === 'Others';
-        });
 
         if ($validator->fails()) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Validation failed',
-                'errors' => $validator->errors()
-            ], 200);
+            return $this->error('Validation failed', 422, $validator->errors());
         }
 
-        $ticket = Ticket::create([
-            'status_id' => 1, // Open
-            'priority_id' => $request->priority,
-            'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
-            'department' => $request->service_department
-        ]);
+        $ticket = DB::transaction(function () use ($request, $ticketNumberGenerator) {
+            $ticket = Ticket::create([
+                'status_id' => 1, // Open
+                'priority_id' => $request->priority,
+                'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
+                'department' => $request->service_department,
+            ]);
 
-        $natureOfWork = NatureOfWork::firstOrCreate([
-            'label' => $request->nature_of_work
-        ]);
+            $natureOfWork = NatureOfWork::firstOrCreate([
+                'label' => $request->nature_of_work,
+            ]);
 
-        TicketEngineering::create([
-            'ticket_id' => $ticket->id,
-            'nature_of_work' => $natureOfWork->id,
-            'scope_of_work' => $request->scope_of_work, // remarks
-            'other_nature_of_work' => $request->other_nature_of_work,
-            'name_of_area' => $request->name_of_area,
-            'area_supervisor' => $request->area_supervisor
-        ]);
+            TicketEngineering::create([
+                'ticket_id' => $ticket->id,
+                'nature_of_work' => $natureOfWork->id,
+                'scope_of_work' => $request->scope_of_work, // remarks
+                'other_nature_of_work' => $request->other_nature_of_work,
+                'name_of_area' => $request->name_of_area,
+                'area_supervisor' => $request->area_supervisor,
+            ]);
 
-        TicketDateActivity::create([
-            'ticket_id' => $ticket->id,
-            'date_category_id' => 1, // Requested Date
-            'requestor' => $request->requestor,
-            'requestorId' => $request->requestor_meta['id']
-        ]);
+            TicketDateActivity::create([
+                'ticket_id' => $ticket->id,
+                'date_category_id' => 1, // Requested Date
+                'requestor' => $request->requestor,
+                'requestorId' => $request->requestor_meta['id'],
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Ticket saved',
-            'result' => [
-                'ticket' => $ticket
-            ]
-        ], 201);
+            return $ticket;
+        });
 
+        return $this->success('Ticket saved', ['result' => ['ticket' => $ticket]], 201);
     }
-
-
 
     public function overdueTickets(Request $request)
     {
@@ -257,10 +194,9 @@ class TicketingController extends Controller
             ->count();
 
         return response()->json([
-            'ticket' => $overdue
+            'ticket' => $overdue,
         ]);
     }
-
 
     private function getStatusCountsForDepartment(Request $request): array
     {
@@ -321,7 +257,7 @@ class TicketingController extends Controller
 
         $priorityCounts = Priority::where('department_id', $department_id)
             ->get()
-            ->mapWithKeys(fn($priority) => [$priority->level => 0])
+            ->mapWithKeys(fn ($priority) => [$priority->level => 0])
             ->toArray();
 
         foreach ($counts as $level => $total) {
@@ -349,7 +285,7 @@ class TicketingController extends Controller
 
         $priorityCounts = Priority::where('department_id', $department_id)
             ->get()
-            ->mapWithKeys(fn($priority) => [$priority->level => 0])
+            ->mapWithKeys(fn ($priority) => [$priority->level => 0])
             ->toArray();
 
         foreach ($counts as $level => $total) {
@@ -362,53 +298,53 @@ class TicketingController extends Controller
     private function getPrioritySlaForDepartment(Request $request): array
     {
         $department_id = $request->user()->department_id;
+
         return Priority::where('department_id', $department_id)
             ->get()
-            ->mapWithKeys(fn($priority) => [$priority->level => $priority->SLA])
+            ->mapWithKeys(fn ($priority) => [$priority->level => $priority->SLA])
             ->toArray();
     }
-
 
     public function baseTicket(Request $request, $userId = null)
     {
         $department_id = $request->user()->department_id;
 
-        $query = Ticket::
-            select(
-                'tickets.id as id',
-                'ticket_number',
-                'name_of_area',
-                'area_supervisor',
-                'status.label as status',
-                'priority.level as priority',
-                'priority.SLA as priority_sla',
-                'departments.department'
-            )
-            ->when($department_id == 1, function($q){
+        $query = Ticket::select(
+            'tickets.id as id',
+            'tickets.department as department_id',
+            'ticket_number',
+            'name_of_area',
+            'area_supervisor',
+            'status.label as status',
+            'priority.level as priority',
+            'priority.SLA as priority_sla',
+            'departments.department'
+        )
+            ->when($department_id == 1, function ($q) {
                 $q->join('tickets_it', function ($join) {
                     $join->on('tickets.id', 'tickets_it.ticket_id');
                 })
-                ->join('type_of_concern', function ($join) {
-                    $join->on('type_of_concern.id', 'tickets_it.type_of_concern');
-                })
-                ->addSelect(
-                    'type_of_concern.label as type_of_concern', 
-                    'type_of_tech_support', 
-                    'remarks'
+                    ->join('type_of_concern', function ($join) {
+                        $join->on('type_of_concern.id', 'tickets_it.type_of_concern');
+                    })
+                    ->addSelect(
+                        'type_of_concern.label as type_of_concern',
+                        'type_of_tech_support',
+                        'remarks'
                     )
-                ->groupBy('tickets_it.id');
-            }, function($q){
+                    ->groupBy('tickets_it.id');
+            }, function ($q) {
                 $q->join('tickets_engineering', function ($join) {
                     $join->on('tickets.id', 'tickets_engineering.ticket_id');
                 })
-                ->join('nature_of_work', function ($join) {
-                    $join->on('nature_of_work.id', 'tickets_engineering.nature_of_work');
-                })
-                ->addSelect(
-                    'scope_of_work', 
-                    DB::raw("CASE WHEN nature_of_work.label = 'Others' THEN other_nature_of_work ELSE nature_of_work.label END as nature_of_work")
+                    ->join('nature_of_work', function ($join) {
+                        $join->on('nature_of_work.id', 'tickets_engineering.nature_of_work');
+                    })
+                    ->addSelect(
+                        'scope_of_work',
+                        DB::raw("CASE WHEN nature_of_work.label = 'Others' THEN other_nature_of_work ELSE nature_of_work.label END as nature_of_work")
                     )
-                ->groupBy('tickets_engineering.id');
+                    ->groupBy('tickets_engineering.id');
             })
             ->join('priority', function ($join) {
                 $join->on('priority.id', 'tickets.priority_id');
@@ -438,10 +374,11 @@ class TicketingController extends Controller
                 });
             })
             ->when($userId, function ($q) use ($userId) {
-                $q->leftJoin('ticket_date_activities', function ($join) use ($userId) {
+                $q->leftJoin('ticket_date_activities', function ($join) {
                     $join->on('ticket_date_activities.ticket_id', 'tickets.id');
                 })
-                ->whereRaw("(date_category_id IN (1, 2)) AND user_id = $userId");
+                    ->whereIn('ticket_date_activities.date_category_id', [1, 2])
+                    ->where('ticket_date_activities.user_id', $userId);
             })
             ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'devices'])
             ->withCount('comments')
@@ -454,10 +391,11 @@ class TicketingController extends Controller
         $ticket = $query->paginate(10);
 
         $data = [
+            'success' => true,
             'result' => [
                 'ticket' => $ticket, // now paginated from the FILTERED query
-                'priority_sla' => $this->getPrioritySlaForDepartment($request)
-            ]
+                'priority_sla' => $this->getPrioritySlaForDepartment($request),
+            ],
         ];
 
         return $data;
@@ -484,19 +422,18 @@ class TicketingController extends Controller
         return response()->json($response, 200);
     }
 
-
     public function getTicketRequests(Request $request)
     {
         $baseQuery = Ticket::select(
-                'tickets.id as id',
-                'ticket_number',
-                'name_of_area',
-                'area_supervisor',
-                'status.label as status',
-                'priority.level as priority',
-                'priority.SLA as priority_sla',
-                'departments.department'
-            )
+            'tickets.id as id',
+            'ticket_number',
+            'name_of_area',
+            'area_supervisor',
+            'status.label as status',
+            'priority.level as priority',
+            'priority.SLA as priority_sla',
+            'departments.department'
+        )
             ->join('priority', function ($join) {
                 $join->on('priority.id', 'tickets.priority_id');
             })
@@ -534,107 +471,111 @@ class TicketingController extends Controller
         (clone $baseQuery)->join('tickets_it', function ($join) {
             $join->on('tickets.id', 'tickets_it.ticket_id');
         })
-        ->join('type_of_concern', function ($join) {
-            $join->on('type_of_concern.id', 'tickets_it.type_of_concern');
-        })
-        ->where('tickets.department', 1)
-        ->addSelect(
-            'type_of_concern.label as type_of_concern',
-            'type_of_tech_support',
-            'remarks'
-        )
-        ->groupBy('tickets_it.id')
-        ->get();
+            ->join('type_of_concern', function ($join) {
+                $join->on('type_of_concern.id', 'tickets_it.type_of_concern');
+            })
+            ->where('tickets.department', 1)
+            ->addSelect(
+                'type_of_concern.label as type_of_concern',
+                'type_of_tech_support',
+                'remarks'
+            )
+            ->groupBy('tickets_it.id')
+            ->get();
 
         $ticketsEngineering =
         (clone $baseQuery)->join('tickets_engineering', function ($join) {
             $join->on('tickets.id', 'tickets_engineering.ticket_id');
         })
-        ->join('nature_of_work', function ($join) {
-            $join->on('nature_of_work.id', 'tickets_engineering.nature_of_work');
-        })
-        ->where('tickets.department', 2)
-        ->addSelect(
-            'scope_of_work',
-            DB::raw("CASE WHEN nature_of_work.label = 'Others' THEN other_nature_of_work ELSE nature_of_work.label END as nature_of_work")
-        )
-        ->groupBy('tickets_engineering.id')
-        ->get();
+            ->join('nature_of_work', function ($join) {
+                $join->on('nature_of_work.id', 'tickets_engineering.nature_of_work');
+            })
+            ->where('tickets.department', 2)
+            ->addSelect(
+                'scope_of_work',
+                DB::raw("CASE WHEN nature_of_work.label = 'Others' THEN other_nature_of_work ELSE nature_of_work.label END as nature_of_work")
+            )
+            ->groupBy('tickets_engineering.id')
+            ->get();
 
         return response()->json([
+            'success' => true,
             'message' => 'Ticket requests retreived successfully',
             'result' => [
                 'ticketsIT' => $ticketsIT,
-                'ticketsEngineering' => $ticketsEngineering
-            ]
-        ], 201);
+                'ticketsEngineering' => $ticketsEngineering,
+            ],
+        ], 200);
     }
 
-    public function assignTicket(Request $request, Ticket $ticket)
+    public function assignTicket(AssignTicketRequest $request, Ticket $ticket)
     {
-        $validated = $request->validate([
-            'user_id' => 'required|exists:users,id'
-        ]);
+        Gate::authorize('assign', $ticket);
 
-        TicketDateActivity::create([
-            'ticket_id'        => $ticket->id,
-            'date_category_id' => DateCategory::where('category', 'Assigned Date')->first()->id,
-            'user_id'          => $validated['user_id'],
-            'status'           => 1
-        ]);
+        if ($ticket->ticketStatus->label === 'Completed') {
+            return $this->error('A completed ticket cannot be assigned.', 409);
+        }
 
-        $ticket->update(['status_id' => 2]);
+        DB::transaction(function () use ($request, $ticket) {
+            $userId = $request->validated('user_id');
 
-        return response()->json([
-            'message' => 'Ticket assigned successfully',
-            'result' => [
-                'ticket' => $ticket
-            ]
-        ], 201);
+            // One Assigned activity per ticket: reassigning updates it.
+            TicketDateActivity::updateOrCreate(
+                [
+                    'ticket_id' => $ticket->id,
+                    'date_category_id' => DateCategory::where('category', 'Assigned Date')->value('id'),
+                ],
+                ['user_id' => $userId, 'status' => 1]
+            );
+
+            $ticket->update([
+                'status_id' => Status::where('label', 'In-progress')->value('id'),
+                'assigned_user' => $userId,
+            ]);
+        });
+
+        return $this->success('Ticket assigned successfully', ['result' => ['ticket' => $ticket->fresh()]]);
     }
-
 
     public function markAsComplete(Ticket $ticket)
     {
-        $completedCategory = DateCategory::where('category', 'Completed Date')->first();
+        Gate::authorize('complete', $ticket);
 
-        $assignedUser = 
-        TicketDateActivity::where('ticket_id', $ticket->id)
-        ->where('date_category_id', 2)
-        ->first();
+        if ($ticket->ticketStatus->label === 'Completed') {
+            return $this->error('The ticket is already completed.', 409);
+        }
 
-        TicketDateActivity::create([
-            'ticket_id'        => $ticket->id,
-            'date_category_id' => $completedCategory->id,
-            'user_id'          => $assignedUser->user_id, // Mark as completed by the assigned user
-            'status'           => 1
-        ]);
+        $assignedUser = TicketDateActivity::where('ticket_id', $ticket->id)
+            ->where('date_category_id', DateCategory::where('category', 'Assigned Date')->value('id'))
+            ->value('user_id') ?? $ticket->assigned_user;
 
-        $completedStatus = Status::where('label', 'Completed')->first();
+        if ($assignedUser === null) {
+            return $this->error('An unassigned ticket cannot be completed.', 409);
+        }
 
-        $ticket->update([
-            'status_id' => $completedStatus->id
-        ]);
+        DB::transaction(function () use ($ticket, $assignedUser) {
+            TicketDateActivity::create([
+                'ticket_id' => $ticket->id,
+                'date_category_id' => DateCategory::where('category', 'Completed Date')->value('id'),
+                'user_id' => $assignedUser, // Mark as completed by the assigned user
+                'status' => 1,
+            ]);
 
-        return response()->json([
-            'message' => 'Ticket marked as complete',
-            'result' => [
-                'ticket' => $ticket
-            ]
-        ], 201);
+            $ticket->update([
+                'status_id' => Status::where('label', 'Completed')->value('id'),
+            ]);
+        });
+
+        return $this->success('Ticket marked as complete', ['result' => ['ticket' => $ticket->fresh()]]);
     }
 
-
-
-
-    public function getDashboardStats(Request $request)
+    public function getDashboardStats(DashboardRequest $request)
     {
-        $department = $request->user()->department_id ?? 1; // TODO: confirm actual column on users table
+        $department = $request->user()->department_id;
 
-        // $priorityFilterID = $request->query('priority'); // now a dynamic level string, e.g. 'Urgent'
-        $month = $request->query('date'); // 'YYYY-MM'
+        $month = $request->validated('date'); // 'YYYY-MM'
 
-        $anchor = $month ? Carbon::createFromFormat('Y-m', $month) : Carbon::now();
+        $anchor = $month ? Carbon::createFromFormat('!Y-m', $month) : Carbon::now();
         $start = $anchor->copy()->startOfMonth();
         $end = $anchor->copy()->endOfMonth();
 
@@ -642,36 +583,40 @@ class TicketingController extends Controller
             ->join('priority', 'priority.id', 'tickets.priority_id')
             ->where('tickets.department', $department)
             ->whereBetween('tickets.created_at', [$start, $end]);
-            // ->when($priorityFilterID, fn($q) => $q->where('priority.id', $priorityFilterID));
+
+        $statusCounts = (clone $base)
+            ->when($request->validated('priority'), function ($q, $priority) {
+                // Accepts a priority id or a level name.
+                $q->where(function ($sub) use ($priority) {
+                    $sub->where('priority.level', $priority)
+                        ->orWhere('priority.id', ctype_digit($priority) ? (int) $priority : 0);
+                });
+            })
+            ->selectRaw('status.label as label, COUNT(*) as total')
+            ->groupBy('status.label')
+            ->pluck('total', 'label');
 
         $overview = [
-            'open' => (clone $base)->where('status.label', 'Open')->count(),
-            'in_progress' => (clone $base)->where('status.label', 'In-progress')->count(),
-            'completed' => (clone $base)->where('status.label', 'Completed')->count(),
-            'overdue' => (clone $base)->where('status.label', 'Overdue')->count(),
+            'open' => (int) ($statusCounts['Open'] ?? 0),
+            'in_progress' => (int) ($statusCounts['In-progress'] ?? 0),
+            'completed' => (int) ($statusCounts['Completed'] ?? 0),
+            'overdue' => (int) ($statusCounts['Overdue'] ?? 0),
         ];
 
-        // Separate base WITHOUT the priority filter, so the breakdown always shows
-        // all priorities for the department even when the user has filtered the
-        // overview/table by a single priority.
-        $statsBase = Ticket::join('status', 'status.id', 'tickets.status_id')
-            ->join('priority', 'priority.id', 'tickets.priority_id')
-            ->where('tickets.department', $department)
-            ->whereBetween('tickets.created_at', [$start, $end]);
+        // The breakdown ignores the priority filter, so it always shows all
+        // priorities for the department.
+        $priorityCounts = (clone $base)
+            ->selectRaw('priority.id as priority_id, COUNT(*) as total')
+            ->groupBy('priority.id')
+            ->pluck('total', 'priority_id');
 
         $priorityStats = Priority::where('department_id', $department)
             ->get()
-            ->map(function ($priority) use ($statsBase) {
-                $count = (clone $statsBase)
-                    ->where('priority.id', $priority->id)
-                    ->count();
-
-                return [
-                    'priority_id' => $priority->id,
-                    'level' => $priority->level,
-                    'count' => $count,
-                ];
-            })
+            ->map(fn ($priority) => [
+                'priority_id' => $priority->id,
+                'level' => $priority->level,
+                'count' => (int) ($priorityCounts[$priority->id] ?? 0),
+            ])
             ->values();
 
         $today = Carbon::today();
@@ -684,7 +629,7 @@ class TicketingController extends Controller
         $todayCompleted = (clone $todayBase)->where('status.label', 'Completed')->count();
         $todayPercent = $todayTotal > 0 ? (int) round(($todayCompleted / $todayTotal) * 100) : 0;
 
-        $topPerformers = TicketDateActivity::join('date_categories', 'date_categories.id', 'ticket_date_activities.date_category_id')
+        $topPerformerRows = TicketDateActivity::join('date_categories', 'date_categories.id', 'ticket_date_activities.date_category_id')
             ->join('users', 'users.id', 'ticket_date_activities.user_id')
             ->join('tickets', 'tickets.id', 'ticket_date_activities.ticket_id')
             ->where('tickets.department', $department)
@@ -695,25 +640,25 @@ class TicketingController extends Controller
             ->orderByDesc('completed_count')
             ->limit(5)
             ->get()
-            ->values()
-            ->map(function ($row, $index) use ($department) {
-                $inProgress = Ticket::join('status', 'status.id', 'tickets.status_id')
-                    ->where('tickets.department', $department)
-                    ->where('tickets.assigned_user', $row->id)
-                    ->where('status.label', 'In-progress')
-                    ->count();
+            ->values();
 
-                return [
-                    'rank' => $index + 1,
-                    'user_id' => $row->id,
-                    'name' => trim("{$row->first_name} {$row->last_name}"),
-                    'in_progress' => $inProgress,
-                    'completed' => (int) $row->completed_count,
-                ];
-            });
+        $inProgressCounts = Ticket::join('status', 'status.id', 'tickets.status_id')
+            ->where('tickets.department', $department)
+            ->whereIn('tickets.assigned_user', $topPerformerRows->pluck('id'))
+            ->where('status.label', 'In-progress')
+            ->selectRaw('tickets.assigned_user as user_id, COUNT(*) as total')
+            ->groupBy('tickets.assigned_user')
+            ->pluck('total', 'user_id');
 
-        return response()->json([
-            'message' => 'Dashboard stats retrieved',
+        $topPerformers = $topPerformerRows->map(fn ($row, $index) => [
+            'rank' => $index + 1,
+            'user_id' => $row->id,
+            'name' => trim("{$row->first_name} {$row->last_name}"),
+            'in_progress' => (int) ($inProgressCounts[$row->id] ?? 0),
+            'completed' => (int) $row->completed_count,
+        ]);
+
+        return $this->success('Dashboard stats retrieved', [
             'result' => [
                 'overview' => $overview,
                 'priority_stats' => $priorityStats,
@@ -724,19 +669,18 @@ class TicketingController extends Controller
                 ],
                 'top_performers' => $topPerformers,
             ],
-        ], 200);
+        ]);
     }
 
-    
-    public function getPriority(Request $request)
+    public function getPriority(ListPriorityRequest $request)
     {
-        $query = Priority::query();
+        $priorities = Priority::where('department_id', $request->validated('department_id') ?? $request->user()->department_id)
+            ->where('status', true)
+            ->orderBy('id')
+            ->get();
 
-        if ($request->has('department_id')) {
-            $query->where('department_id', $request->department_id);
-        }
-
-        return response()->json($query->get());
+        return $this->success('Priorities retrieved successfully', [
+            'result' => ['priorities' => PriorityResource::collection($priorities)->resolve()],
+        ]);
     }
-
 }
