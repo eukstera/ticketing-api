@@ -25,7 +25,9 @@ Response changes:
 - The paginator and `priority_sla` are unchanged.
 - **Breaking change:** `status_counts` becomes an array of `{ id, label, count }`, including statuses with a count of 0, plus `{ id: null, label: "All", count }` as the first entry.
 - **Breaking change:** `priority_counts` becomes an array of `{ id, level, sla_days, count }`.
-- Counts respect `search`, the date range and the priority filter, but ignore the status filter, so the tab badges stay meaningful.
+- Each count ignores its own filter, so the badges stay meaningful:
+  - `status_counts` respects `search`, the date range and the priority filter, but ignores the status filter.
+  - `priority_counts` respects `search`, the date range and the status filter, but ignores the priority filter.
 - Every row carries `department_id`, `status_id` and `priority_id` (numbers) next to the existing `status` and `priority` labels. `department_id` ships in Phase 1 (see below).
 
 ### (b) Ticket detail
