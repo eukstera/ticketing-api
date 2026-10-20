@@ -3,6 +3,7 @@
 use App\Http\Controllers\AccomplishmentReportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\LookupController;
 use App\Http\Controllers\TicketingController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
@@ -25,6 +26,10 @@ Route::post('/saveTicketEngineering', [TicketingController::class, 'saveTicketEn
 Route::get('/getTicketRequests', [TicketingController::class, 'getTicketRequests']);
 
 Route::middleware('auth:sanctum')->group(function(){
+
+    // lookup lists for ticket forms
+    Route::get('/lookups/concern-types', [LookupController::class, 'concernTypes']);
+    Route::get('/lookups/nature-of-work', [LookupController::class, 'natureOfWork']);
 
     // fetch all data for dashboard display
     Route::get('/dashboard', [TicketingController::class, 'getDashboardStats']);
