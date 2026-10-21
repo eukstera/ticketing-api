@@ -8,6 +8,7 @@ use App\Http\Requests\ListPriorityRequest;
 use App\Http\Requests\SaveRequestTicketITRequest;
 use App\Http\Requests\TicketListRequest;
 use App\Http\Resources\PriorityResource;
+use App\Http\Resources\TicketDetailResource;
 use App\Models\DateCategory;
 use App\Models\Department;
 use App\Models\Device;
@@ -297,6 +298,26 @@ class TicketingController extends Controller
                 'ticketsEngineering' => $ticketsEngineering,
             ],
         ], 200);
+    }
+
+    public function show(Ticket $ticket)
+    {
+        Gate::authorize('view', $ticket);
+
+        $ticket->load([
+            'ticketStatus',
+            'priority',
+            'handlingDepartment',
+            'assignedUser',
+            'itDetails.concernType',
+            'engineeringDetails.natureOfWork',
+            'devices',
+            'dateActivities.dateCategory',
+            'dateActivities.user',
+            'comments.user',
+        ]);
+
+        return $this->success('Ticket retrieved', ['result' => ['ticket' => new TicketDetailResource($ticket)]]);
     }
 
     public function assignTicket(AssignTicketRequest $request, Ticket $ticket)

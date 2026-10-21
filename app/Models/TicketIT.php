@@ -37,4 +37,9 @@ class TicketIT extends Model
     {
         return $this->belongsTo(Ticket::class);
     }
+
+    public function concernType(): BelongsTo
+    {
+        return $this->belongsTo(TypeOfConcern::class, 'type_of_concern');
+    }
 }

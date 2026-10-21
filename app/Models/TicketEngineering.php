@@ -37,4 +37,9 @@ class TicketEngineering extends Model
     {
         return $this->belongsTo(Ticket::class);
     }
+
+    public function natureOfWork(): BelongsTo
+    {
+        return $this->belongsTo(NatureOfWork::class, 'nature_of_work');
+    }
 }
