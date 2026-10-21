@@ -6,8 +6,8 @@ use App\Http\Requests\AssignTicketRequest;
 use App\Http\Requests\DashboardRequest;
 use App\Http\Requests\ListPriorityRequest;
 use App\Http\Requests\SaveRequestTicketITRequest;
+use App\Http\Requests\TicketListRequest;
 use App\Http\Resources\PriorityResource;
-use App\Models\Comment;
 use App\Models\DateCategory;
 use App\Models\Department;
 use App\Models\Device;
@@ -19,6 +19,7 @@ use App\Models\TicketDateActivity;
 use App\Models\TicketEngineering;
 use App\Models\TicketIT;
 use App\Models\TypeOfConcern;
+use App\Services\TicketListQuery;
 use App\Services\TicketNumberGenerator;
 use App\Traits\ApiResponseTrait;
 use Carbon\Carbon;
@@ -198,228 +199,18 @@ class TicketingController extends Controller
         ]);
     }
 
-    private function getStatusCountsForDepartment(Request $request): array
+    public function getDepartmentTickets(TicketListRequest $request, TicketListQuery $ticketList)
     {
-        $department_id = $request->user()->department_id;
-        $counts = Ticket::join('status', 'status.id', 'tickets.status_id')
-            ->where('tickets.department', $department_id)
-            ->selectRaw('status.label as status, COUNT(DISTINCT tickets.id) as total')
-            ->groupBy('status.label')
-            ->pluck('total', 'status');
+        $result = $ticketList->run($request, $request->user()->department_id);
 
-        $statusCounts = [
-            'All' => Ticket::where('department', $department_id)->count(),
-            'Open' => 0,
-            'In-progress' => 0,
-            'Completed' => 0,
-            'Overdue' => 0,
-        ];
-
-        foreach ($counts as $label => $total) {
-            $statusCounts[$label] = $total;
-        }
-
-        return $statusCounts;
+        return $this->success('Department tickets retreived', ['result' => $result]);
     }
 
-    private function getStatusCountsForUser(Request $request): array
+    public function getMyTickets(TicketListRequest $request, TicketListQuery $ticketList)
     {
-        $department_id = $request->user()->department_id;
-        $userId = $request->user()->id;
-        $counts = Ticket::join('status', 'status.id', 'tickets.status_id')
-            ->join('ticket_date_activities', function ($join) use ($userId) {
-                $join->on('ticket_date_activities.ticket_id', '=', 'tickets.id')
-                    ->whereIn('ticket_date_activities.date_category_id', [1, 2])
-                    ->where('ticket_date_activities.user_id', $userId);
-            })
-            ->where('tickets.department', $department_id)
-            ->selectRaw('status.label as status, COUNT(DISTINCT tickets.id) as total')
-            ->groupBy('status.label')
-            ->pluck('total', 'status');
+        $result = $ticketList->run($request, $request->user()->department_id, $request->user()->id);
 
-        $statusCounts = ['All' => 0, 'Open' => 0, 'In-progress' => 0, 'Completed' => 0, 'Overdue' => 0];
-        foreach ($counts as $label => $total) {
-            $statusCounts[$label] = $total;
-            $statusCounts['All'] += $total;
-        }
-
-        return $statusCounts;
-    }
-
-    private function getPriorityCountsForDepartment(Request $request): array
-    {
-        $department_id = $request->user()->department_id;
-        $counts = Ticket::join('priority', 'priority.id', 'tickets.priority_id')
-            ->where('tickets.department', $department_id)
-            ->selectRaw('priority.level as priority, count(*) as total')
-            ->groupBy('priority.level')
-            ->pluck('total', 'priority');
-
-        $priorityCounts = Priority::where('department_id', $department_id)
-            ->get()
-            ->mapWithKeys(fn ($priority) => [$priority->level => 0])
-            ->toArray();
-
-        foreach ($counts as $level => $total) {
-            $priorityCounts[$level] = $total;
-        }
-
-        return $priorityCounts;
-    }
-
-    private function getPriorityCountsForUser(Request $request): array
-    {
-        $department_id = $request->user()->department_id;
-        $userId = $request->user()->id;
-
-        $counts = Ticket::join('priority', 'priority.id', 'tickets.priority_id')
-            ->join('ticket_date_activities', function ($join) use ($userId) {
-                $join->on('ticket_date_activities.ticket_id', '=', 'tickets.id')
-                    ->whereIn('ticket_date_activities.date_category_id', [1, 2])
-                    ->where('ticket_date_activities.user_id', $userId);
-            })
-            ->where('tickets.department', $department_id)
-            ->selectRaw('priority.level as priority, COUNT(DISTINCT tickets.id) as total')
-            ->groupBy('priority.level')
-            ->pluck('total', 'priority');
-
-        $priorityCounts = Priority::where('department_id', $department_id)
-            ->get()
-            ->mapWithKeys(fn ($priority) => [$priority->level => 0])
-            ->toArray();
-
-        foreach ($counts as $level => $total) {
-            $priorityCounts[$level] = $total;
-        }
-
-        return $priorityCounts;
-    }
-
-    private function getPrioritySlaForDepartment(Request $request): array
-    {
-        $department_id = $request->user()->department_id;
-
-        return Priority::where('department_id', $department_id)
-            ->get()
-            ->mapWithKeys(fn ($priority) => [$priority->level => $priority->SLA])
-            ->toArray();
-    }
-
-    public function baseTicket(Request $request, $userId = null)
-    {
-        $department_id = $request->user()->department_id;
-
-        $query = Ticket::select(
-            'tickets.id as id',
-            'tickets.department as department_id',
-            'ticket_number',
-            'name_of_area',
-            'area_supervisor',
-            'status.label as status',
-            'priority.level as priority',
-            'priority.SLA as priority_sla',
-            'departments.department'
-        )
-            ->when($department_id == 1, function ($q) {
-                $q->join('tickets_it', function ($join) {
-                    $join->on('tickets.id', 'tickets_it.ticket_id');
-                })
-                    ->join('type_of_concern', function ($join) {
-                        $join->on('type_of_concern.id', 'tickets_it.type_of_concern');
-                    })
-                    ->addSelect(
-                        'type_of_concern.label as type_of_concern',
-                        'type_of_tech_support',
-                        'remarks'
-                    )
-                    ->groupBy('tickets_it.id');
-            }, function ($q) {
-                $q->join('tickets_engineering', function ($join) {
-                    $join->on('tickets.id', 'tickets_engineering.ticket_id');
-                })
-                    ->join('nature_of_work', function ($join) {
-                        $join->on('nature_of_work.id', 'tickets_engineering.nature_of_work');
-                    })
-                    ->addSelect(
-                        'scope_of_work',
-                        DB::raw("CASE WHEN nature_of_work.label = 'Others' THEN other_nature_of_work ELSE nature_of_work.label END as nature_of_work")
-                    )
-                    ->groupBy('tickets_engineering.id');
-            })
-            ->join('priority', function ($join) {
-                $join->on('priority.id', 'tickets.priority_id');
-            })
-            ->join('status', function ($join) {
-                $join->on('status.id', 'tickets.status_id');
-            })
-            ->join('departments', function ($join) {
-                $join->on('departments.id', 'tickets.department');
-            })
-            ->leftJoin('users', function ($join) {
-                $join->on('users.id', 'tickets.assigned_user');
-            })
-            ->where('tickets.department', $department_id)
-            ->when($request->filled('status'), function ($q) use ($request) {
-                $q->where('status.label', $request->status);
-            })
-            ->when($request->filled('priority'), function ($q) use ($request) {
-                $q->where('priority.level', $request->priority);
-            })
-            ->when($request->filled('search'), function ($q) use ($request) {
-                $search = $request->search;
-                $q->where(function ($sub) use ($search) {
-                    $sub->where('ticket_number', 'like', "%{$search}%")
-                        // ->orWhere('type_of_concern.label', 'like', "%{$search}%")
-                        ->orWhere('name_of_area', 'like', "%{$search}%");
-                });
-            })
-            ->when($userId, function ($q) use ($userId) {
-                $q->leftJoin('ticket_date_activities', function ($join) {
-                    $join->on('ticket_date_activities.ticket_id', 'tickets.id');
-                })
-                    ->whereIn('ticket_date_activities.date_category_id', [1, 2])
-                    ->where('ticket_date_activities.user_id', $userId);
-            })
-            ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'devices'])
-            ->withCount('comments')
-            // ->addSelect([
-            //     'comments_count' => Comment::selectRaw('count(*)')
-            //         ->whereColumn('comments.ticket_id', 'tickets.id')
-            // ])
-            ->orderBy('tickets.created_at', 'desc');
-
-        $ticket = $query->paginate(10);
-
-        $data = [
-            'success' => true,
-            'result' => [
-                'ticket' => $ticket, // now paginated from the FILTERED query
-                'priority_sla' => $this->getPrioritySlaForDepartment($request),
-            ],
-        ];
-
-        return $data;
-    }
-
-    public function getDepartmentTickets(Request $request)
-    {
-        $response = $this->baseTicket($request);
-        $response['message'] = 'Department tickets retreived';
-        $response['result']['status_counts'] = $this->getStatusCountsForDepartment($request);
-        $response['result']['priority_counts'] = $this->getPriorityCountsForDepartment($request);
-
-        return response()->json($response, 200);
-    }
-
-    public function getMyTickets(Request $request)
-    {
-        $userId = $request->user()->id;
-        $response = $this->baseTicket($request, $userId);
-        $response['message'] = 'My tickets retreived';
-        $response['result']['status_counts'] = $this->getStatusCountsForUser($request);
-        $response['result']['priority_counts'] = $this->getPriorityCountsForUser($request);
-
-        return response()->json($response, 200);
+        return $this->success('My tickets retreived', ['result' => $result]);
     }
 
     public function getTicketRequests(Request $request)
