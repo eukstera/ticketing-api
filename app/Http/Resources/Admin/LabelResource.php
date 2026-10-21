@@ -2,14 +2,13 @@
 
 namespace App\Http\Resources\Admin;
 
-use App\Models\TypeOfConcern;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
  * Concern types and nature of work: { id, label, status }.
  *
- * @mixin TypeOfConcern
+ * @mixin \App\Models\TypeOfConcern
  */
 class LabelResource extends JsonResource
 {
