@@ -72,6 +72,20 @@ class CommentController extends Controller
         ]);
     }
 
+    public function destroy(Request $request, Comment $comment): JsonResponse
+    {
+        $user = $request->user();
+        $isAuthor = (int) $comment->user_id === $user->id;
+
+        if (! $isAuthor && Gate::forUser($user)->denies('admin')) {
+            return $this->forbidden('Only the author or an admin can delete this comment.');
+        }
+
+        $comment->delete();
+
+        return $this->success('Comment deleted', ['result' => (object) []]);
+    }
+
     private function forbidden(string $message = 'You are not allowed to access this ticket.'): JsonResponse
     {
         return $this->error($message, 403);
