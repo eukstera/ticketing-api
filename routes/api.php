@@ -59,6 +59,9 @@ Route::middleware('auth:sanctum')->group(function(){
     // update comments
     Route::patch('/tickets/comments/{comment}', [CommentController::class, 'updateComment']);
 
+    // delete comment (author or admin)
+    Route::delete('/tickets/comments/{comment}', [CommentController::class, 'destroy']);
+
     // save comment
     Route::post('/tickets/{ticket}/comments', [CommentController::class, 'store']);
 
