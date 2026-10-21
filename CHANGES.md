@@ -29,8 +29,14 @@
     - "You can only delete your own comments."
     - ticket view, assign, complete and comment messages
     - "Only Department Heads can export another user's report."
-- **Deploy notes:**
-  - A cron entry is needed for `php artisan schedule:run`, which runs `tickets:promote-overdue` every 5 minutes.
+- **Deploy notes (production runs on Windows):**
+  - The scheduler runs as an **NSSM service** that executes `php artisan schedule:work`, which runs `tickets:promote-overdue` every 5 minutes.
+    - Install it with `deploy/windows/install-scheduler-service.ps1 -PhpPath ... -AppPath ...` (default service name `TicketingScheduler`) and remove it with `uninstall-scheduler-service.ps1`. The install script is idempotent and writes rotated logs to `storage/logs/scheduler-*.log`.
+    - After each deploy, run `nssm restart TicketingScheduler` (or `php artisan schedule:interrupt`).
+    - The service account needs read/write access to `storage/` and `bootstrap/cache`.
+    - See the README, "Deployment on Windows".
+    - On Linux, use cron instead: `* * * * * php artisan schedule:run`.
+  - Run `php artisan migrate --force`, then `php artisan db:seed --class=ReferenceDataSeeder --force`, then `config:cache`, `route:cache` and `event:cache`.
   - Set `CORS_ALLOWED_ORIGINS` to the prod origin.
   - Set `APP_DEBUG=false`.
   - Check that the deploy uses a case-sensitive filesystem; the controller filename is fixed.
