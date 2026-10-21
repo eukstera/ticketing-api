@@ -1,5 +1,40 @@
 # Changes
 
+## 2026-10-21 — Phase 1 and Phase 2 complete
+
+- **Status:** Phase 1 (stabilize) and Phase 2 (features) are implemented as specified in the sections below. The full suite (sqlite) passes **355/355**, and Pint is clean. All commits are local on `main`; nothing has been pushed.
+- **Phase 1:**
+  - the overdue scheduled command replaces the middleware
+  - ticket number generation works on any database, with a unique index
+  - auth: login throttle, 7-day tokens, `/me`, `/logout`, `POST /admin/users`, and `/register` removed
+  - the admin Gate (Department Head) and policies
+  - the central error envelope
+  - Form Requests and exists rules, plus the assign and complete guards
+  - fixes to the dashboard and report
+  - env-driven CORS
+- **Phase 2:**
+  - ticket list search, filters and sorting, with the count arrays
+  - `GET /tickets/{ticket}`
+  - `DELETE` comment
+  - `GET /roles` and `/lookups/departments`
+  - admin CRUD for users, roles, departments, designations, priorities, concern types and nature of work (soft deactivate and reactivate; protected rows)
+  - `PATCH /me` and `PATCH /me/password`
+- **Added after the frontend smoke tests:**
+  - `priority_sla` is an int
+  - inactive priorities are hidden from dashboard and list counts
+  - `saveRequestTicketIT` rejects inactive references
+  - friendly 403 messages:
+    - "Only Department Heads can manage this."
+    - "You can only edit your own comments."
+    - "You can only delete your own comments."
+    - ticket view, assign, complete and comment messages
+    - "Only Department Heads can export another user's report."
+- **Deploy notes:**
+  - A cron entry is needed for `php artisan schedule:run`, which runs `tickets:promote-overdue` every 5 minutes.
+  - Set `CORS_ALLOWED_ORIGINS` to the prod origin.
+  - Set `APP_DEBUG=false`.
+  - Check that the deploy uses a case-sensitive filesystem; the controller filename is fixed.
+
 ## 2026-10-21 — New dev database (ticketing_api_v2)
 
 By user request, this repo moved to its own database instead of resetting the shared one.
