@@ -1,5 +1,30 @@
 # Changes
 
+## 2026-10-21 — Public Track Ticket lookup (approved by user)
+
+This is for the public requestor portal (apps/TicketingForm).
+
+`POST /api/track`: public, throttled to 10 requests per minute per IP (429 beyond that). POST is used so the requester's name stays out of URLs and access logs.
+
+| Field | Rules |
+|---|---|
+| `ticket_number` | required, string, max 50. Matched exactly after trimming, e.g. `10-001-2026`. |
+| `requestor` | required, string, max 150. The requester's **name** exactly as submitted on the ticket. Compared after trimming, collapsing repeated spaces and ignoring case. Email is **not** supported: tickets don't store the requester's email. |
+
+- **200:**
+  ```
+  { success: true, message, result: { ticket: {
+      ticket_number, status, priority, department, name_of_area,
+      details: string|null,          // IT remarks, or Engineering scope of work
+      requested_at: ISO8601|null, assigned_at: ISO8601|null, completed_at: ISO8601|null
+  } } }
+  ```
+  `status`, `priority` and `department` are labels.
+- **404** `{ success: false, message: "Ticket not found." }` is returned both for an unknown ticket number and for a name mismatch, so tickets cannot be enumerated.
+- **422:** missing or invalid fields.
+- The response contains no internal ids, requester ids, assignee identity or comments.
+- This endpoint is live only after the new code is deployed. The old production host does not have it.
+
 ## 2026-10-21 — Phase 1 and Phase 2 complete
 
 - **Status:** Phase 1 (stabilize) and Phase 2 (features) are implemented as specified in the sections below. The full suite (sqlite) passes **355/355**, and Pint is clean. All commits are local on `main`; nothing has been pushed.
