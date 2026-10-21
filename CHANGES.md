@@ -124,6 +124,7 @@ Every route in this section requires the `admin` gate, meaning the caller's role
 - The profile throttle counts failed attempts too.
 
 **Protected rows:**
+- Admins cannot deactivate their own account (409).
 - The "Department Head" role and the "Others" nature of work cannot be renamed or deactivated. Attempts return 409, because authorization and the engineering "other nature of work" field depend on those names.
 - `POST /saveRequestTicketIT` rejects inactive departments, priorities, concern types and assignees with 422. The public requestor routes are unchanged.
 
