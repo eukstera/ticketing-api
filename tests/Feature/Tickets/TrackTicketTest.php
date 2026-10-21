@@ -141,15 +141,71 @@ class TrackTicketTest extends ApiTestCase
         }
     }
 
-    public function test_fields_are_required_and_bounded(): void
+    public function test_only_the_ticket_number_is_required_and_fields_are_bounded(): void
     {
         $this->postJson(self::URL, [])
             ->assertUnprocessable()
-            ->assertJsonValidationErrors(['ticket_number', 'requestor']);
+            ->assertJsonValidationErrors(['ticket_number'])
+            ->assertJsonMissingValidationErrors(['requestor']);
 
         $this->postJson(self::URL, ['ticket_number' => str_repeat('1', 51), 'requestor' => str_repeat('a', 151)])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['ticket_number', 'requestor']);
+    }
+
+    public function test_number_only_returns_the_minimal_ticket_without_details(): void
+    {
+        $this->itTicket();
+
+        $response = $this->postJson(self::URL, ['ticket_number' => '05-001-2026'])
+            ->assertOk()
+            ->assertJsonPath('result.ticket.ticket_number', '05-001-2026')
+            ->assertJsonPath('result.ticket.status', 'Open')
+            ->assertJsonPath('result.ticket.name_of_area', 'Pharmacy');
+
+        $this->assertSame(
+            ['ticket_number', 'status', 'priority', 'department', 'name_of_area', 'requested_at', 'assigned_at', 'completed_at'],
+            array_keys($response->json('result.ticket'))
+        );
+        $this->assertStringNotContainsString('Printer jam', $response->getContent());
+    }
+
+    public function test_a_blank_name_is_treated_as_number_only(): void
+    {
+        $this->itTicket();
+
+        $response = $this->postJson(self::URL, ['ticket_number' => '05-001-2026', 'requestor' => '   '])->assertOk();
+
+        $this->assertArrayNotHasKey('details', $response->json('result.ticket'));
+    }
+
+    public function test_number_only_works_for_an_engineering_ticket_too(): void
+    {
+        $this->engineeringTicket();
+
+        $response = $this->postJson(self::URL, ['ticket_number' => '05-002-2026'])->assertOk();
+
+        $this->assertSame('ICU', $response->json('result.ticket.name_of_area'));
+        $this->assertArrayNotHasKey('details', $response->json('result.ticket'));
+    }
+
+    public function test_a_matching_name_adds_the_details(): void
+    {
+        $this->itTicket();
+
+        $this->postJson(self::URL, ['ticket_number' => '05-001-2026', 'requestor' => 'Juan Dela Cruz'])
+            ->assertOk()
+            ->assertJsonPath('result.ticket.details', 'Printer jam');
+    }
+
+    public function test_a_wrong_name_gets_the_same_404_as_an_unknown_number(): void
+    {
+        $this->itTicket();
+
+        $wrongName = $this->postJson(self::URL, ['ticket_number' => '05-001-2026', 'requestor' => 'Someone Else'])->assertNotFound();
+        $unknownNumber = $this->postJson(self::URL, ['ticket_number' => '99-999-2026'])->assertNotFound();
+
+        $this->assertSame($wrongName->getContent(), $unknownNumber->getContent());
     }
 
     public function test_it_is_public(): void
