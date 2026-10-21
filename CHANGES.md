@@ -15,6 +15,7 @@ By user request, this repo moved to its own database instead of resetting the sh
   - The per-table seeders are unchanged; the test harness uses them.
 - **Seeded:** roles 2, departments 2, designations 2, statuses 4, priorities 7 (sla_days 1/2/3/10/1/2/3), date categories 3, concern types 3, nature of work 2.
 - **Accounts:** one account was recreated by request (user id 1). There are no tickets, comments, activities or devices.
+- A dev-only QA account was created by user request (user id 2).
 
 ## 2026-10-20 — Phase 2 (features): API contract (spec, not yet implemented)
 
