@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Tickets;
 
+use App\Models\Priority;
 use App\Models\Ticket;
 use App\Models\User;
 use Database\Factories\NatureOfWorkFactory;
@@ -73,7 +74,10 @@ class TicketListTest extends ApiTestCase
         $this->assertSame((int) $ticket->priority_id, $row['priority_id']);
         $this->assertSame('Open', $row['status']);
         $this->assertIsString($row['priority']);
-        $this->assertArrayHasKey('priority_sla', $row);
+        $this->assertIsInt($row['priority_sla']);
+        foreach ($response->json('result.priority_sla') as $days) {
+            $this->assertIsInt($days);
+        }
     }
 
     public function test_per_page_defaults_to_ten_and_is_bounded(): void
@@ -248,6 +252,18 @@ class TicketListTest extends ApiTestCase
         $this->assertSame(2, $first['count']);
         $this->assertIsInt($first['sla_days']);
         $this->assertSame(0, collect($counts)->firstWhere('id', 2)['count']);
+    }
+
+    public function test_inactive_priorities_are_left_out_of_priority_counts_unless_selected(): void
+    {
+        $this->actingAsUser($this->itUser());
+        Priority::query()->whereKey(4)->update(['status' => false]);
+
+        $ids = collect($this->getJson(self::URL)->assertOk()->json('result.priority_counts'))->pluck('id')->all();
+        $this->assertSame([1, 2, 3], $ids);
+
+        $selected = collect($this->getJson(self::URL.'?priority_id=4')->assertOk()->json('result.priority_counts'))->pluck('id')->all();
+        $this->assertContains(4, $selected);
     }
 
     public function test_counts_ignore_the_status_filter_but_respect_search_priority_and_dates(): void

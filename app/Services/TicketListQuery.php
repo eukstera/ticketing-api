@@ -40,7 +40,7 @@ class TicketListQuery
 
         return [
             'ticket' => $tickets,
-            'priority_sla' => Priority::where('department_id', $departmentId)->pluck('SLA', 'level')->all(),
+            'priority_sla' => Priority::where('department_id', $departmentId)->pluck('sla_days', 'level')->map(fn ($days) => (int) $days)->all(),
             'status_counts' => $this->statusCounts($request, $departmentId, $userId, $requestedId),
             'priority_counts' => $this->priorityCounts($request, $departmentId, $userId, $requestedId),
         ];
@@ -80,7 +80,7 @@ class TicketListQuery
             'tickets.ticket_number',
             'status.label as status',
             'priority.level as priority',
-            'priority.SLA as priority_sla',
+            'priority.sla_days as priority_sla',
             'departments.department',
         );
 
@@ -202,7 +202,14 @@ class TicketListQuery
             ->groupBy('tickets.priority_id')
             ->pluck('total', 'group_id');
 
-        return Priority::where('department_id', $departmentId)->where('status', true)->orderBy('id')->get()
+        return Priority::where('department_id', $departmentId)
+            ->where(function ($q) use ($request) {
+                // Active priorities, plus any inactive one a filter explicitly selects.
+                $q->where('status', true)
+                    ->when($request->filled('priority_id'), fn ($w) => $w->orWhere('id', $request->integer('priority_id')))
+                    ->when($request->filled('priority'), fn ($w) => $w->orWhere('level', $request->input('priority')));
+            })
+            ->orderBy('id')->get()
             ->map(fn (Priority $priority) => [
                 'id' => $priority->id,
                 'level' => $priority->level,

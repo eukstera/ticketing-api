@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Dashboard;
 
+use App\Models\Priority;
 use App\Models\User;
 use Database\Factories\TicketFactory;
 use Tests\ApiTestCase;
@@ -105,6 +106,16 @@ class DashboardTest extends ApiTestCase
 
         $stats = collect($this->getJson('/api/dashboard?priority=1')->json('result.priority_stats'));
         $this->assertSame(1, $stats->firstWhere('priority_id', 2)['count']);
+    }
+
+    public function test_inactive_priorities_are_left_out_of_priority_stats(): void
+    {
+        $this->actingAsUser($this->itUser());
+        Priority::query()->whereKey(4)->update(['status' => false]);
+
+        $ids = collect($this->getJson('/api/dashboard')->assertOk()->json('result.priority_stats'))->pluck('priority_id')->all();
+
+        $this->assertSame([1, 2, 3], $ids);
     }
 
     public function test_todays_ticket_percentage(): void

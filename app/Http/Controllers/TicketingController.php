@@ -423,6 +423,7 @@ class TicketingController extends Controller
             ->pluck('total', 'priority_id');
 
         $priorityStats = Priority::where('department_id', $department)
+            ->where('status', true)
             ->get()
             ->map(fn ($priority) => [
                 'priority_id' => $priority->id,

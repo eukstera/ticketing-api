@@ -31,6 +31,7 @@ class Ticket extends Model
             'status_id' => 'integer',
             'priority_id' => 'integer',
             'assigned_user' => 'integer',
+            'priority_sla' => 'integer',
         ];
     }
 
