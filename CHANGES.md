@@ -118,7 +118,8 @@ Every route in this section requires the `admin` gate, meaning the caller's role
   - an invalid `sort`, `dir` or date on ticket lists
 - An unknown id on any route returns 404 `{ success: false, message }`.
 - `is_overdue` is true when the ticket's status is Overdue, or when the ticket is open or in progress and past `due_at`. It is false for Completed tickets.
-- `due_at` = requested date + `sla_days` days.
+- `due_at` = the requested date + `sla_days` days, taken at the start of that day. This is the same calendar-day rule `tickets:promote-overdue` uses. `due_at` is null when there is no requested date or when `sla_days` is 0.
+- The detail `timeline` is ordered by category (Requested, Assigned, Completed), with one row per category. A reassignment updates the Assigned row in place.
 - The profile throttle counts failed attempts too.
 
 **Status on PATCH:** every admin resource accepts `status` (boolean) on `PATCH`.
