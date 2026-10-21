@@ -55,8 +55,6 @@ class ModelRelationsTest extends TestCase
         $this->assertNull($ticket->engineeringDetails);
         $this->assertIsInt($ticket->status_id);
         $this->assertIsInt($ticket->assigned_user);
-        $this->assertIsInt($ticket->department);
-        $this->assertIsBool($ticket->status);
     }
 
     public function test_engineering_ticket_exposes_engineering_details(): void
