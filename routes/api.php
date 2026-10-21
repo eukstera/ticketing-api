@@ -50,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function(){
     // assign ticket
     Route::post('/tickets/{ticket}/assign', [TicketingController::class, 'assignTicket']);
 
+    // ticket detail
+    Route::get('/tickets/{ticket}', [TicketingController::class, 'show']);
+
     // fetch all comments
     Route::get('/tickets/{ticket}/comments', [CommentController::class, 'index']);
 
