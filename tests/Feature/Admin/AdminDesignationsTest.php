@@ -97,6 +97,54 @@ class AdminDesignationsTest extends AdminResourceTestCase
             ->assertJsonValidationErrors(['department_id']);
     }
 
+    public function test_names_are_unique_within_a_department_case_insensitively(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Network Engineer', true, 1);
+        $row = $this->newRow('Analyst', true, 1);
+
+        $this->patchJson($this->rowUrl($row), ['designation' => 'NETWORK engineer'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['designation']);
+        $this->patchJson($this->rowUrl($row), ['designation' => 'Analyst II'])->assertOk();
+        $this->patchJson($this->rowUrl($row), ['designation' => 'ANALYST II', 'status' => true])
+            ->assertOk('A row may keep (re-case) its own name');
+    }
+
+    public function test_the_same_name_is_allowed_in_another_department(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Supervisor', true, 1);
+        $row = $this->newRow('Supervisor', true, 2);
+
+        $this->patchJson($this->rowUrl($row), ['designation' => 'Supervisor'])->assertOk();
+    }
+
+    public function test_moving_to_a_department_that_already_has_the_name_is_rejected(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Supervisor', true, 1);
+        $row = $this->newRow('supervisor', true, 2);
+
+        $this->patchJson($this->rowUrl($row), ['department_id' => 1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['department_id']);
+
+        $this->assertDatabaseHas('designations', ['id' => $row->id, 'department_id' => 2]);
+    }
+
+    public function test_renaming_and_moving_at_once_is_checked_against_the_new_pair(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Lead', true, 1);
+        $row = $this->newRow('Other', true, 2);
+
+        $this->patchJson($this->rowUrl($row), ['designation' => 'Lead', 'department_id' => 1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['designation']);
+        $this->patchJson($this->rowUrl($row), ['designation' => 'Lead', 'department_id' => 2])->assertOk();
+    }
+
     public function test_deactivated_designations_leave_the_public_list(): void
     {
         $this->actingAsAdmin();

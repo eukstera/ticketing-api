@@ -107,6 +107,43 @@ class AdminPrioritiesTest extends AdminResourceTestCase
             ->assertJsonValidationErrors(['department_id']);
     }
 
+    public function test_levels_are_unique_within_a_department_case_insensitively(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Critical', true, 1);
+        $row = $this->newRow('Routine', true, 1);
+
+        $this->patchJson($this->rowUrl($row), ['level' => 'CRITICAL'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['level']);
+        $this->postJson($this->url(), ['level' => 'critical', 'sla_days' => 1, 'department_id' => 1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['level']);
+        $this->patchJson($this->rowUrl($row), ['level' => 'Routine', 'sla_days' => 7])->assertOk();
+    }
+
+    public function test_the_same_level_is_allowed_in_another_department(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Critical', true, 1);
+
+        $this->postJson($this->url(), ['level' => 'Critical', 'sla_days' => 1, 'department_id' => 2])
+            ->assertCreated();
+    }
+
+    public function test_moving_to_a_department_that_already_has_the_level_is_rejected(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow('Critical', true, 1);
+        $row = $this->newRow('critical', true, 2);
+
+        $this->patchJson($this->rowUrl($row), ['department_id' => 1])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['department_id']);
+
+        $this->assertDatabaseHas('priority', ['id' => $row->id, 'department_id' => 2]);
+    }
+
     public function test_deactivated_priorities_leave_the_priority_lookup(): void
     {
         $this->actingAsAdmin();
