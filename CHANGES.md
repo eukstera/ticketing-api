@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-21 — Track Ticket: number-only lookup (approved by user)
+
+- On `POST /api/track`, `requestor` is now **optional**.
+  - **Number only:** returns the minimal shape `{ ticket_number, status, priority, department, name_of_area, requested_at, assigned_at, completed_at }`. `details` is **omitted**.
+  - **Number + matching name:** returns the full shape as before, including `details` (the remarks or scope of work).
+  - **Number + non-matching name:** returns the same generic 404 as an unknown number.
+- The generic 404 and the 10/min per-IP throttle are unchanged.
+- **Known risk (accepted by user):** ticket numbers are sequential (`MM-NNN-YYYY`), so anyone who can reach the API can enumerate tickets and see their status, priority, department, area and dates. Remarks and scope of work are only shown when the requester's name is also given.
+
 ## 2026-10-21 — Anonymous public ticket submission (approved by user)
 
 The public form no longer verifies the requester's identity.
