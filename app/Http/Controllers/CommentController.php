@@ -18,8 +18,10 @@ class CommentController extends Controller
 
     public function index(Request $request, Ticket $ticket): JsonResponse
     {
-        if (Gate::forUser($request->user())->denies('viewComments', $ticket)) {
-            return $this->forbidden();
+        $response = Gate::forUser($request->user())->inspect('viewComments', $ticket);
+
+        if ($response->denied()) {
+            return $this->forbidden($response->message());
         }
 
         $comments = Comment::where('ticket_id', $ticket->id)
@@ -37,8 +39,10 @@ class CommentController extends Controller
 
     public function store(StoreCommentRequest $request, Ticket $ticket): JsonResponse
     {
-        if (Gate::forUser($request->user())->denies('comment', $ticket)) {
-            return $this->forbidden();
+        $response = Gate::forUser($request->user())->inspect('comment', $ticket);
+
+        if ($response->denied()) {
+            return $this->forbidden($response->message());
         }
 
         $comment = Comment::create([
@@ -58,8 +62,10 @@ class CommentController extends Controller
 
     public function updateComment(UpdateCommentRequest $request, Comment $comment): JsonResponse
     {
-        if (Gate::forUser($request->user())->denies('update', $comment)) {
-            return $this->forbidden('You can only edit your own comments.');
+        $response = Gate::forUser($request->user())->inspect('update', $comment);
+
+        if ($response->denied()) {
+            return $this->forbidden($response->message());
         }
 
         $comment->update(['comment' => $request->validated('comment')]);
@@ -78,7 +84,7 @@ class CommentController extends Controller
         $isAuthor = (int) $comment->user_id === $user->id;
 
         if (! $isAuthor && Gate::forUser($user)->denies('admin')) {
-            return $this->forbidden('Only the author or an admin can delete this comment.');
+            return $this->forbidden('You can only delete your own comments.');
         }
 
         $comment->delete();
@@ -86,8 +92,8 @@ class CommentController extends Controller
         return $this->success('Comment deleted', ['result' => (object) []]);
     }
 
-    private function forbidden(string $message = 'You are not allowed to access this ticket.'): JsonResponse
+    private function forbidden(?string $message = null): JsonResponse
     {
-        return $this->error($message, 403);
+        return $this->error($message ?? 'You are not allowed to access this ticket.', 403);
     }
 }

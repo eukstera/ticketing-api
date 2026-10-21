@@ -51,8 +51,11 @@ class CommentTest extends ApiTestCase
 
         $this->getJson("/api/tickets/{$ticket->id}/comments")
             ->assertForbidden()
-            ->assertJsonPath('success', false);
-        $this->postJson("/api/tickets/{$ticket->id}/comments", ['comment' => 'Hello'])->assertForbidden();
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You can only view or comment on tickets from your department or tickets you requested.');
+        $this->postJson("/api/tickets/{$ticket->id}/comments", ['comment' => 'Hello'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'You can only view or comment on tickets from your department or tickets you requested.');
 
         $this->assertDatabaseCount('comments', 0);
     }
@@ -126,7 +129,8 @@ class CommentTest extends ApiTestCase
 
         $this->patchJson("/api/tickets/comments/{$comment->id}", ['comment' => 'Hijacked'])
             ->assertForbidden()
-            ->assertJsonPath('success', false);
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You can only edit your own comments.');
 
         $this->assertSame('Original', $comment->fresh()->comment);
     }
@@ -181,7 +185,8 @@ class CommentTest extends ApiTestCase
 
         $this->deleteJson("/api/tickets/comments/{$comment->id}")
             ->assertForbidden()
-            ->assertJsonPath('success', false);
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'You can only delete your own comments.');
 
         $this->assertNotNull(Comment::find($comment->id));
     }
