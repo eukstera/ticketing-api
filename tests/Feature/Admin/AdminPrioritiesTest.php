@@ -80,7 +80,7 @@ class AdminPrioritiesTest extends AdminResourceTestCase
             $this->patchJson($this->rowUrl($row), ['sla_days' => $invalid])
                 ->assertUnprocessable()
                 ->assertJsonValidationErrors(['sla_days']);
-            $this->postJson($this->url(), $this->createPayload('X') + ['sla_days' => $invalid])
+            $this->postJson($this->url(), array_merge($this->createPayload('X'), ['sla_days' => $invalid]))
                 ->assertUnprocessable();
         }
 

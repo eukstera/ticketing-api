@@ -73,5 +73,20 @@ Route::middleware('auth:sanctum')->group(function(){
 
     // Generate accomplishment report
     Route::get('/reports/accomplishment', [AccomplishmentReportController::class, 'generate']);
-    
+
+    // admin lookup CRUD (admin gate is enforced in the controllers); DELETE is a soft deactivate
+    Route::prefix('admin')->group(function () {
+        $resource = fn (string $path, string $controller, array $only) => Route::apiResource($path, $controller)
+            ->only($only)
+            ->parameters([$path => 'id'])
+            ->where(['id' => '[0-9]+']);
+
+        $resource('departments', \App\Http\Controllers\Admin\DepartmentController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('roles', \App\Http\Controllers\Admin\RoleController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('designations', \App\Http\Controllers\Admin\DesignationController::class, ['index', 'update', 'destroy']);
+        $resource('priorities', \App\Http\Controllers\Admin\PriorityController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('concern-types', \App\Http\Controllers\Admin\ConcernTypeController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('nature-of-work', \App\Http\Controllers\Admin\NatureOfWorkController::class, ['index', 'store', 'update', 'destroy']);
+    });
+
 });
