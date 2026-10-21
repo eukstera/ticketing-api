@@ -18,7 +18,7 @@ class TrackTicketRequest extends FormRequest
     {
         return [
             'ticket_number' => ['required', 'string', 'max:50'],
-            'requestor' => ['required', 'string', 'max:150'],
+            'requestor' => ['nullable', 'string', 'max:150'],
         ];
     }
 }

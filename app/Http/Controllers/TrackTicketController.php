@@ -31,29 +31,32 @@ class TrackTicketController extends Controller
         $requested = $ticket?->dateActivities
             ->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'Requested Date');
 
+        // Without a name only the minimal view is returned; a name that is
+        // sent must match, and unlocks the details.
+        $requestor = $request->validated('requestor');
+        $withName = $requestor !== null && trim($requestor) !== '';
+
         if ($ticket === null
-            || $requested === null
-            || $this->normalize((string) $requested->requestor) !== $this->normalize($request->validated('requestor'))) {
+            || ($withName && $this->normalize((string) $requested?->requestor) !== $this->normalize($requestor))) {
             return $this->error('Ticket not found.', 404);
         }
 
-        $details = $ticket->itDetails ?? $ticket->engineeringDetails;
+        $payload = [
+            'ticket_number' => $ticket->ticket_number,
+            'status' => $ticket->ticketStatus->label,
+            'priority' => $ticket->priority->level,
+            'department' => $ticket->handlingDepartment?->department,
+            'name_of_area' => ($ticket->itDetails ?? $ticket->engineeringDetails)?->name_of_area,
+            'requested_at' => $requested?->created_at?->toIso8601String(),
+            'assigned_at' => $this->dateOf($ticket->dateActivities, 'Assigned Date'),
+            'completed_at' => $this->dateOf($ticket->dateActivities, 'Completed Date'),
+        ];
 
-        return $this->success('Ticket found', [
-            'result' => [
-                'ticket' => [
-                    'ticket_number' => $ticket->ticket_number,
-                    'status' => $ticket->ticketStatus->label,
-                    'priority' => $ticket->priority->level,
-                    'department' => $ticket->handlingDepartment?->department,
-                    'name_of_area' => $details?->name_of_area,
-                    'details' => $ticket->itDetails ? $ticket->itDetails->remarks : $ticket->engineeringDetails?->scope_of_work,
-                    'requested_at' => $requested->created_at?->toIso8601String(),
-                    'assigned_at' => $this->dateOf($ticket->dateActivities, 'Assigned Date'),
-                    'completed_at' => $this->dateOf($ticket->dateActivities, 'Completed Date'),
-                ],
-            ],
-        ]);
+        if ($withName) {
+            $payload['details'] = $ticket->itDetails ? $ticket->itDetails->remarks : $ticket->engineeringDetails?->scope_of_work;
+        }
+
+        return $this->success('Ticket found', ['result' => ['ticket' => $payload]]);
     }
 
     /**
