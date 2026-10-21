@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ConcernTypeController;
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DesignationController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LookupController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TicketingController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
@@ -35,7 +37,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
 
     // admin only: create accounts and designations
-    Route::post('/admin/users', [AuthController::class, 'storeUser'])->middleware('can:admin');
+    Route::middleware('can:admin')->group(function () {
+        Route::get('/admin/users', [AdminUserController::class, 'index']);
+        Route::post('/admin/users', [AuthController::class, 'storeUser']);
+        Route::get('/admin/users/{user}', [AdminUserController::class, 'show']);
+        Route::patch('/admin/users/{user}', [AdminUserController::class, 'update']);
+        Route::delete('/admin/users/{user}', [AdminUserController::class, 'destroy']);
+    });
+
+    Route::middleware('throttle:profile')->group(function () {
+        Route::patch('/me', [ProfileController::class, 'update']);
+        Route::patch('/me/password', [ProfileController::class, 'updatePassword']);
+    });
     Route::post('/designations', [UserController::class, 'storeDesignation'])->middleware('can:admin');
 
     // lookup lists for ticket forms
