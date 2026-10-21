@@ -1,5 +1,14 @@
 # Changes
 
+## 2026-10-21 — Anonymous public ticket submission (approved by user)
+
+The public form no longer verifies the requester's identity.
+
+- `POST /saveTicketIT` and `POST /saveTicketEngineering`: `requestor_meta` and `requestor_meta.id` are now **optional**. When they are omitted, the Requested Date activity stores `requestorId = null`. The free-text `requestor` name is still required.
+- `GET /getTicketRequests`: `requestorId` is now **required** (422 if missing). Before, a call without it would have matched every ticket with a null `requestorId`, which would expose all anonymous tickets.
+- Anonymous tickets don't appear in any requester list. Requesters follow them through `POST /track` (ticket number + name).
+- Department lists, the dashboard, ticket detail (where `requester` falls back to `{ name }`) and reports don't depend on `requestorId`.
+
 ## 2026-10-21 — Public Track Ticket lookup (approved by user)
 
 This is for the public requestor portal (apps/TicketingForm).
