@@ -122,6 +122,10 @@ Every route in this section requires the `admin` gate, meaning the caller's role
 - The detail `timeline` is ordered by category (Requested, Assigned, Completed), with one row per category. A reassignment updates the Assigned row in place.
 - The profile throttle counts failed attempts too.
 
+**Protected rows:**
+- The "Department Head" role and the "Others" nature of work cannot be renamed or deactivated. Attempts return 409, because authorization and the engineering "other nature of work" field depend on those names.
+- `POST /saveRequestTicketIT` rejects inactive departments, priorities, concern types and assignees with 422. The public requestor routes are unchanged.
+
 **Status on PATCH:** every admin resource accepts `status` (boolean) on `PATCH`.
 
 **Reactivate:** `PATCH` with `{ status: true }` reactivates any deactivated row (users, roles, departments, designations, priorities, concern types, nature of work). Admin list endpoints accept `?status=active|inactive|all` (default `all`). Deactivated rows are excluded from the public and lookup endpoints (`/designations`, `/priority`, `/lookups/*`, `/employees`). A deactivated user cannot log in (403).
