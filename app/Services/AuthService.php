@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\User;
 use App\Repositories\UserRepository;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\NewAccessToken;
 
 class AuthService
 {
@@ -12,33 +14,47 @@ class AuthService
         private UserRepository $userRepository
     ) {}
 
-    public function register(array $data): array
+    /**
+     * Create an account; the password is hashed by the User model cast.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function createUser(array $data): User
     {
-        $data['password'] = Hash::make($data['password']);
-        $user  = $this->userRepository->create($data);
-        $token = $user->createToken('auth_token')->plainTextToken;
-
-        return [
-            'user'  => $user,
-            'token' => $token
-        ];
+        return $this->userRepository->create($data);
     }
 
-    public function login(array $data): ? array
+    /**
+     * Verify the credentials without touching the session guard and issue a token.
+     *
+     * @param  array{email: string, password: string}  $credentials
+     * @return array{user: User, token: string, expires_at: ?string}|null
+     *
+     * @throws AuthorizationException when the account is deactivated
+     */
+    public function login(array $credentials): ?array
     {
-        if (!Auth::attempt($data)) {
+        $user = $this->userRepository->findByEmail($credentials['email']);
+
+        if (! $user || ! Hash::check($credentials['password'], $user->password)) {
             return null;
         }
 
-        // $user = $this->userRepository->findByEmail($data['email']);
-        $user = Auth::user();
-        $token = $user->createToken('auth_token')->plainTextToken;
+        if (! $user->status) {
+            throw new AuthorizationException('This account has been deactivated.');
+        }
+
+        $newToken = $this->issueToken($user);
 
         return [
             'user' => $user,
-            'token' => $token
+            'token' => $newToken->plainTextToken,
+            'expires_at' => $newToken->accessToken->expires_at?->toIso8601String(),
         ];
-
     }
 
+    private function issueToken(User $user): NewAccessToken
+    {
+        return $user->createToken('auth_token', ['*'], now()->addMinutes((int) config('sanctum.expiration')));
+    }
 }
