@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\Role;
 use Carbon\Carbon;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class RoleSeeder extends Seeder
@@ -18,7 +17,7 @@ class RoleSeeder extends Seeder
 
         $data = [
             ['role' => 'Normal User', 'created_at' => $now, 'updated_at' => $now],
-            ['role' => 'Department Head', 'created_at' => $now, 'updated_at' => $now]
+            ['role' => 'Department Head', 'created_at' => $now, 'updated_at' => $now],
         ];
 
         Role::insert($data);

@@ -7,7 +7,9 @@ use App\Http\Requests\Admin\ListAdminResourceRequest;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -25,12 +27,12 @@ abstract class AdminResourceController extends Controller
     abstract protected function modelClass(): string;
 
     /**
-     * @return class-string<\Illuminate\Foundation\Http\FormRequest>
+     * @return class-string<FormRequest>
      */
     abstract protected function requestClass(): string;
 
     /**
-     * @return class-string<\Illuminate\Http\Resources\Json\JsonResource>
+     * @return class-string<JsonResource>
      */
     abstract protected function resourceClass(): string;
 

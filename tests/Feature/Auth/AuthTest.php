@@ -2,6 +2,8 @@
 
 namespace Tests\Feature\Auth;
 
+use App\Models\Designation;
+use App\Models\Role;
 use App\Models\User;
 use Database\Factories\UserFactory;
 use Illuminate\Support\Carbon;
@@ -168,8 +170,8 @@ class AuthTest extends ApiTestCase
     public function test_admin_can_create_a_user(): void
     {
         $this->actingAsAdmin();
-        $designation = \App\Models\Designation::query()->where('department_id', 2)->firstOrFail();
-        $roleId = \App\Models\Role::query()->where('role', 'Normal User')->value('id');
+        $designation = Designation::query()->where('department_id', 2)->firstOrFail();
+        $roleId = Role::query()->where('role', 'Normal User')->value('id');
 
         $response = $this->postJson('/api/admin/users', [
             'first_name' => 'New',
@@ -195,7 +197,7 @@ class AuthTest extends ApiTestCase
     public function test_admin_user_creation_is_validated(): void
     {
         $this->actingAsAdmin();
-        $itDesignation = \App\Models\Designation::query()->where('department_id', 1)->firstOrFail();
+        $itDesignation = Designation::query()->where('department_id', 1)->firstOrFail();
 
         $this->postJson('/api/admin/users', [
             'first_name' => 'Bad',

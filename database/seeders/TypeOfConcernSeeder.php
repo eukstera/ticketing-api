@@ -4,7 +4,6 @@ namespace Database\Seeders;
 
 use App\Models\TypeOfConcern;
 use Carbon\Carbon;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class TypeOfConcernSeeder extends Seeder
@@ -19,7 +18,7 @@ class TypeOfConcernSeeder extends Seeder
         $data = [
             ['label' => 'Hardware', 'created_at' => $now, 'updated_at' => $now],
             ['label' => 'Software', 'created_at' => $now, 'updated_at' => $now],
-            ['label' => 'Printer', 'created_at' => $now, 'updated_at' => $now]
+            ['label' => 'Printer', 'created_at' => $now, 'updated_at' => $now],
         ];
 
         TypeOfConcern::insert($data);
