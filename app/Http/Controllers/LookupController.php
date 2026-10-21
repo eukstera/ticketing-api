@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\NatureOfWork;
+use App\Models\Role;
 use App\Models\TypeOfConcern;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -27,6 +28,18 @@ class LookupController extends Controller
 
         return $this->success('Nature of work retrieved successfully', [
             'result' => ['nature_of_work' => $natureOfWork],
+        ]);
+    }
+
+    public function roles(): JsonResponse
+    {
+        $roles = Role::where('status', true)
+            ->orderBy('id')
+            ->get(['id', 'role', 'status'])
+            ->map(fn (Role $role) => ['id' => $role->id, 'name' => $role->role, 'status' => (bool) $role->status]);
+
+        return $this->success('Roles retrieved successfully', [
+            'result' => ['roles' => $roles],
         ]);
     }
 
