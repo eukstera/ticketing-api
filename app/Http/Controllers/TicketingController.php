@@ -46,7 +46,8 @@ class TicketingController extends Controller
             'remarks' => 'required',
             'priority' => 'required|integer|exists:priority,id',
             'requestor' => 'required',
-            'requestor_meta.id' => 'required',
+            'requestor_meta' => 'nullable|array',
+            'requestor_meta.id' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -60,7 +61,7 @@ class TicketingController extends Controller
                 'ticket_id' => $ticket->id,
                 'date_category_id' => 1, // Requested Date
                 'requestor' => $request->requestor,
-                'requestorId' => $request->requestor_meta['id'],
+                'requestorId' => $request->input('requestor_meta.id'),
             ]);
 
             return $ticket;
@@ -148,7 +149,8 @@ class TicketingController extends Controller
             'name_of_area' => 'required',
             'priority' => 'required|integer|exists:priority,id',
             'requestor' => 'required',
-            'requestor_meta.id' => 'required',
+            'requestor_meta' => 'nullable|array',
+            'requestor_meta.id' => 'nullable',
         ]);
 
         if ($validator->fails()) {
@@ -180,7 +182,7 @@ class TicketingController extends Controller
                 'ticket_id' => $ticket->id,
                 'date_category_id' => 1, // Requested Date
                 'requestor' => $request->requestor,
-                'requestorId' => $request->requestor_meta['id'],
+                'requestorId' => $request->input('requestor_meta.id'),
             ]);
 
             return $ticket;
@@ -216,6 +218,15 @@ class TicketingController extends Controller
 
     public function getTicketRequests(Request $request)
     {
+        // Required: a missing id must never match the NULL requestorId of anonymous tickets.
+        $validator = Validator::make($request->all(), [
+            'requestorId' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->error('Validation failed', 422, $validator->errors());
+        }
+
         $baseQuery = Ticket::select(
             'tickets.id as id',
             'ticket_number',
