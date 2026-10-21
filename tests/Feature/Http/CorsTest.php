@@ -6,12 +6,18 @@ use Tests\TestCase;
 
 class CorsTest extends TestCase
 {
-    public function test_allowed_origins_default_to_the_dev_frontends(): void
+    /**
+     * The real .env may add origins (e.g. a LAN address), so only the dev
+     * frontends are required to be present, and the list must be clean.
+     */
+    public function test_allowed_origins_include_the_dev_frontends(): void
     {
-        $this->assertSame(
-            ['http://localhost:3000', 'https://snaking-easing-mystify.ngrok-free.dev'],
-            config('cors.allowed_origins')
-        );
+        $origins = config('cors.allowed_origins');
+
+        $this->assertContains('http://localhost:3000', $origins);
+        $this->assertContains('https://snaking-easing-mystify.ngrok-free.dev', $origins);
+        $this->assertSame($origins, array_values(array_unique(array_filter(array_map('trim', $origins)))));
+        $this->assertNotContains('*', $origins);
     }
 
     public function test_preflight_from_a_known_origin_is_allowed_with_ngrok_header(): void
