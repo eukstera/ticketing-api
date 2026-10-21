@@ -30,6 +30,9 @@ Route::post('/saveTicketEngineering', [TicketingController::class, 'saveTicketEn
 // fetched ticket requests saved by requestor
 Route::get('/getTicketRequests', [TicketingController::class, 'getTicketRequests']);
 
+// public ticket tracking by ticket number and requester name
+Route::post('/track', [\App\Http\Controllers\TrackTicketController::class, 'show'])->middleware('throttle:track');
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // current session / account
