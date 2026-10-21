@@ -1,5 +1,21 @@
 # Changes
 
+## 2026-10-21 — New dev database (ticketing_api_v2)
+
+By user request, this repo moved to its own database instead of resetting the shared one.
+
+- **Why:** the Laragon copy at `C:\laragon\www\TicketingSystem-API` (vhost `TicketingSystem-API.gbtrghsc.dev`) also uses `ticketing_api` on port 3309. A reset there would have wiped that copy's data too. **That copy still uses `ticketing_api`, which was left untouched.**
+- **Backup** of `ticketing_api` taken first: `storage/app/backups/ticketing_api_2026-10-21_0758_pre-v2.sql` (gitignored).
+- **New database:** `ticketing_api_v2` (utf8mb4 / utf8mb4_unicode_ci) on 127.0.0.1:3309. Our `.env` and `.env.example` now set `DB_DATABASE=ticketing_api_v2`.
+- **Migrations:** `migrate:fresh` ran all 22 migrations. No `--seed`.
+- **Seeders restructured:**
+  - `DatabaseSeeder` now calls only `ReferenceDataSeeder`.
+  - `ReferenceDataSeeder` is new and idempotent. It upserts by id, using the same ids and values as the old database (IT = 1, Department Head = 2, Tech Support = 1, and so on).
+  - The demo users and the 50 factory tickets moved to `DemoDataSeeder`, which never runs by default (`php artisan db:seed --class=DemoDataSeeder`).
+  - The per-table seeders are unchanged; the test harness uses them.
+- **Seeded:** roles 2, departments 2, designations 2, statuses 4, priorities 7 (sla_days 1/2/3/10/1/2/3), date categories 3, concern types 3, nature of work 2.
+- **Accounts:** one account was recreated by request (user id 1). There are no tickets, comments, activities or devices.
+
 ## 2026-10-20 — Phase 2 (features): API contract (spec, not yet implemented)
 
 These routes are bearer-auth and use the Phase 1 envelope and error codes.
