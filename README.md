@@ -41,6 +41,92 @@ php artisan boost:install
 
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
+## Deployment on Windows
+
+The API needs a scheduler for `tickets:promote-overdue` (it marks tickets Overdue every 5 minutes). On Windows the scheduler runs as a service managed by [NSSM](https://nssm.cc).
+
+### Prerequisites
+
+- PHP 8.3+ with the extensions Laravel needs (`mbstring`, `openssl`, `pdo_mysql`, `fileinfo`, `zip`), and Composer.
+- MySQL 8 reachable from the server.
+- A web server (nginx or IIS) pointing at `public/`.
+- `nssm.exe`, on `PATH` or at a known location.
+
+### Configuration
+
+Copy `.env.example` to `.env`, run `php artisan key:generate`, and set at least:
+
+```ini
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://api.example.com
+
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=ticketing_api
+DB_USERNAME=...
+DB_PASSWORD=...
+
+# Comma-separated list of frontend origins allowed by CORS
+CORS_ALLOWED_ORIGINS=https://tickets.example.com
+```
+
+### Deploy steps
+
+```powershell
+composer install --no-dev --optimize-autoloader
+php artisan migrate --force
+php artisan db:seed --class=ReferenceDataSeeder --force
+php artisan config:cache
+php artisan route:cache
+php artisan event:cache
+```
+
+The service account that runs PHP and the scheduler needs read/write access to `storage\` and `bootstrap\cache\`.
+
+### Scheduler service
+
+From an elevated PowerShell, in the application folder:
+
+```powershell
+.\deploy\windows\install-scheduler-service.ps1 `
+    -PhpPath "C:\php\php.exe" `
+    -AppPath "C:\nginx\www\Ticketing System\TicketingSystem-API" `
+    -NssmPath "C:\tools\nssm\nssm.exe" `
+    -StartService
+```
+
+`-ServiceName` defaults to `TicketingScheduler` and `-NssmPath` to `nssm`. Quote paths that contain spaces. The script runs `php artisan schedule:work` as an auto-start service, rotates its logs at about 10 MB and restarts it 5 seconds after an exit. Running it again updates an existing service instead of reinstalling it.
+
+Verify it:
+
+```powershell
+php artisan schedule:list
+Get-Content "storage\logs\scheduler-out.log" -Tail 20
+Get-Content "storage\logs\scheduler-err.log" -Tail 20
+```
+
+To remove the service, run `.\deploy\windows\uninstall-scheduler-service.ps1` (it does nothing if the service is not installed).
+
+### After each deploy
+
+Restart the scheduler so it loads the new code:
+
+```powershell
+nssm restart TicketingScheduler
+# or ask the running scheduler to exit and let NSSM restart it:
+php artisan schedule:interrupt
+```
+
+### Linux alternative
+
+Use the standard cron entry instead of the service:
+
+```cron
+* * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1
+```
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
