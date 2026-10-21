@@ -170,6 +170,19 @@ abstract class AdminResourceTestCase extends ApiTestCase
         );
     }
 
+    public function test_search_treats_percent_and_underscore_literally(): void
+    {
+        $this->actingAsAdmin();
+        $this->newRow(self::MARKER.' 50% off');
+        $this->newRow(self::MARKER.' 50x off');
+        $this->newRow(self::MARKER.' a_b');
+        $this->newRow(self::MARKER.' aXb');
+
+        $this->assertSame([self::MARKER.' 50% off'], $this->listNames('search='.rawurlencode(self::MARKER.' 50%')));
+        $this->assertSame([self::MARKER.' a_b'], $this->listNames('search='.rawurlencode(self::MARKER.' a_b')));
+        $this->assertSame([self::MARKER.' 50% off'], $this->listNames('search='.rawurlencode('%')));
+    }
+
     public function test_invalid_status_filter_is_rejected(): void
     {
         $this->actingAsAdmin();

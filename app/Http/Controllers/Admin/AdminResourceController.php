@@ -89,7 +89,12 @@ abstract class AdminResourceController extends Controller
         $query = $this->modelClass()::query();
 
         if ($request->filled('search')) {
-            $query->where($this->searchColumn(), 'like', '%'.$request->validated('search').'%');
+            $escaped = str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $request->validated('search'));
+
+            $query->whereRaw(
+                $query->getQuery()->getGrammar()->wrap($this->searchColumn())." like ? escape '!'",
+                ["%{$escaped}%"]
+            );
         }
 
         match ($request->validated('status', 'all')) {
