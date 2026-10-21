@@ -13,6 +13,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TicketingController;
+use App\Http\Controllers\TrackTicketController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -31,7 +32,7 @@ Route::post('/saveTicketEngineering', [TicketingController::class, 'saveTicketEn
 Route::get('/getTicketRequests', [TicketingController::class, 'getTicketRequests']);
 
 // public ticket tracking by ticket number and requester name
-Route::post('/track', [\App\Http\Controllers\TrackTicketController::class, 'show'])->middleware('throttle:track');
+Route::post('/track', [TrackTicketController::class, 'show'])->middleware('throttle:track');
 
 Route::middleware('auth:sanctum')->group(function () {
 
