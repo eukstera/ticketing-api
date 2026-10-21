@@ -31,6 +31,7 @@ Route::middleware('auth:sanctum')->group(function(){
     Route::get('/lookups/concern-types', [LookupController::class, 'concernTypes']);
     Route::get('/lookups/nature-of-work', [LookupController::class, 'natureOfWork']);
     Route::get('/lookups/departments', [LookupController::class, 'departments']);
+    Route::get('/roles', [LookupController::class, 'roles']);
 
     // fetch all data for dashboard display
     Route::get('/dashboard', [TicketingController::class, 'getDashboardStats']);
