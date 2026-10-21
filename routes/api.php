@@ -1,6 +1,12 @@
 <?php
 
 use App\Http\Controllers\AccomplishmentReportController;
+use App\Http\Controllers\Admin\ConcernTypeController;
+use App\Http\Controllers\Admin\DepartmentController;
+use App\Http\Controllers\Admin\DesignationController;
+use App\Http\Controllers\Admin\NatureOfWorkController;
+use App\Http\Controllers\Admin\PriorityController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LookupController;
@@ -9,14 +15,11 @@ use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-// Auth Login
-Route::post('/register', [AuthController::class, 'register']);
-Route::post('/login', [AuthController::class, 'login']);
+// Auth Login (throttled to 5/min per email + IP)
+Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
 // get all designations
 Route::get('/designations', [UserController::class, 'getDesignations']);
-// save designations
-Route::post('/designations', [UserController::class, 'storeDesignation']);
 
 // Save Ticket
 Route::post('/saveTicketIT', [TicketingController::class, 'saveTicketIT']);
@@ -25,7 +28,15 @@ Route::post('/saveTicketEngineering', [TicketingController::class, 'saveTicketEn
 // fetched ticket requests saved by requestor
 Route::get('/getTicketRequests', [TicketingController::class, 'getTicketRequests']);
 
-Route::middleware('auth:sanctum')->group(function(){
+Route::middleware('auth:sanctum')->group(function () {
+
+    // current session / account
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/me', [AuthController::class, 'me']);
+
+    // admin only: create accounts and designations
+    Route::post('/admin/users', [AuthController::class, 'storeUser'])->middleware('can:admin');
+    Route::post('/designations', [UserController::class, 'storeDesignation'])->middleware('can:admin');
 
     // lookup lists for ticket forms
     Route::get('/lookups/concern-types', [LookupController::class, 'concernTypes']);
@@ -41,7 +52,7 @@ Route::middleware('auth:sanctum')->group(function(){
 
     // get my tickets
     Route::get('/getMyTickets', [TicketingController::class, 'getMyTickets']);
-    
+
     // get all employees for assign of ticket
     Route::get('/employees', [UserController::class, 'index']);
 
@@ -85,12 +96,12 @@ Route::middleware('auth:sanctum')->group(function(){
             ->parameters([$path => 'id'])
             ->where(['id' => '[0-9]+']);
 
-        $resource('departments', \App\Http\Controllers\Admin\DepartmentController::class, ['index', 'store', 'update', 'destroy']);
-        $resource('roles', \App\Http\Controllers\Admin\RoleController::class, ['index', 'store', 'update', 'destroy']);
-        $resource('designations', \App\Http\Controllers\Admin\DesignationController::class, ['index', 'update', 'destroy']);
-        $resource('priorities', \App\Http\Controllers\Admin\PriorityController::class, ['index', 'store', 'update', 'destroy']);
-        $resource('concern-types', \App\Http\Controllers\Admin\ConcernTypeController::class, ['index', 'store', 'update', 'destroy']);
-        $resource('nature-of-work', \App\Http\Controllers\Admin\NatureOfWorkController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('departments', DepartmentController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('roles', RoleController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('designations', DesignationController::class, ['index', 'update', 'destroy']);
+        $resource('priorities', PriorityController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('concern-types', ConcernTypeController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('nature-of-work', NatureOfWorkController::class, ['index', 'store', 'update', 'destroy']);
     });
 
 });
