@@ -188,6 +188,21 @@ class TicketDetailTest extends ApiTestCase
         $this->assertSame(2, $freshTicket['priority']['sla_days']);
     }
 
+    public function test_in_progress_tickets_past_due_are_overdue_before_the_status_is_flipped(): void
+    {
+        $this->travelTo('2026-05-20 12:00:00');
+        $assignee = $this->itUser();
+        $this->actingAsUser($this->itUser());
+        $priority = PriorityFactory::new()->slaDays(2)->create(['department_id' => $this->itDepartment()->id]);
+        $ticket = $this->itTicketWith($assignee, null, '2026-05-17 09:00:00');
+        $ticket->update(['priority_id' => $priority->id]);
+
+        $response = $this->getJson("/api/tickets/{$ticket->id}")->assertOk();
+
+        $response->assertJsonPath('result.ticket.status.label', 'In-progress')
+            ->assertJsonPath('result.ticket.is_overdue', true);
+    }
+
     public function test_completed_tickets_are_never_overdue(): void
     {
         $this->travelTo('2026-05-20 12:00:00');
