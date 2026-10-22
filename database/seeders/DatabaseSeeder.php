@@ -10,11 +10,16 @@ class DatabaseSeeder extends Seeder
     use WithoutModelEvents;
 
     /**
-     * Seed the application's database with reference data only.
+     * Seed everything the system needs to function: reference data (roles,
+     * departments, designations, statuses, priorities, date categories,
+     * concerns, nature of work, report signatory) and the default account.
      * Demo users and tickets live in DemoDataSeeder.
      */
     public function run(): void
     {
-        $this->call(ReferenceDataSeeder::class);
+        $this->call([
+            ReferenceDataSeeder::class,
+            DefaultAccountSeeder::class,
+        ]);
     }
 }
