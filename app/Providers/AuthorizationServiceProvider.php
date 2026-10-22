@@ -39,6 +39,8 @@ class AuthorizationServiceProvider extends ServiceProvider
 
         RateLimiter::for('track', fn (Request $request) => Limit::perMinute(10)->by((string) $request->ip()));
 
+        RateLimiter::for('confirmation', fn (Request $request) => Limit::perMinute(20)->by((string) $request->ip()));
+
         RateLimiter::for('profile', fn (Request $request) => Limit::perMinute(10)->by(
             (string) ($request->user()?->id ?? $request->ip())
         ));

@@ -33,7 +33,7 @@ class ForbiddenMessagesTest extends ApiTestCase
         $this->actingAsUser($this->engineeringUser());
         $ticket = $this->openItTicket();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertForbidden()
             ->assertJsonPath('message', 'Only the assignee or members of the handling department can complete this ticket.');
     }

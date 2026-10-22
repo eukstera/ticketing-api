@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\AssignTicketRequest;
+use App\Http\Requests\CompleteTicketRequest;
 use App\Http\Requests\DashboardRequest;
 use App\Http\Requests\ListPriorityRequest;
 use App\Http\Requests\SaveRequestTicketITRequest;
@@ -20,6 +21,8 @@ use App\Models\TicketDateActivity;
 use App\Models\TicketEngineering;
 use App\Models\TicketIT;
 use App\Models\TypeOfConcern;
+use App\Services\CompletionConfirmationService;
+use App\Services\ConfirmationException;
 use App\Services\TicketListQuery;
 use App\Services\TicketNumberGenerator;
 use App\Traits\ApiResponseTrait;
@@ -35,6 +38,8 @@ class TicketingController extends Controller
 
     public function saveTicketIT(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
+        $this->normalizeRequesterEmail($request);
+
         $validator = Validator::make($request->all(), [
             'service_department' => 'required|integer|exists:departments,id',
             'area_supervisor' => 'required',
@@ -48,6 +53,7 @@ class TicketingController extends Controller
             'requestor' => 'required',
             'requestor_meta' => 'nullable|array',
             'requestor_meta.id' => 'nullable',
+            'requestor_email' => 'nullable|email|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -108,6 +114,7 @@ class TicketingController extends Controller
             'priority_id' => $request->priority,
             'assigned_user' => $assignedUser,
             'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
+            'requester_email' => $request->input('requestor_email'),
             'department' => $request->service_department,
         ]);
 
@@ -140,6 +147,8 @@ class TicketingController extends Controller
 
     public function saveTicketEngineering(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
+        $this->normalizeRequesterEmail($request);
+
         $validator = Validator::make($request->all(), [
             'service_department' => 'required|integer|exists:departments,id',
             'area_supervisor' => 'nullable',
@@ -151,6 +160,7 @@ class TicketingController extends Controller
             'requestor' => 'required',
             'requestor_meta' => 'nullable|array',
             'requestor_meta.id' => 'nullable',
+            'requestor_email' => 'nullable|email|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -162,6 +172,7 @@ class TicketingController extends Controller
                 'status_id' => 1, // Open
                 'priority_id' => $request->priority,
                 'ticket_number' => $ticketNumberGenerator->generate($request->service_department),
+                'requester_email' => $request->input('requestor_email'),
                 'department' => $request->service_department,
             ]);
 
@@ -189,6 +200,19 @@ class TicketingController extends Controller
         });
 
         return $this->success('Ticket saved', ['result' => ['ticket' => $ticket]], 201);
+    }
+
+    /**
+     * Trims and lowercases the optional requester email; an empty value becomes null.
+     */
+    private function normalizeRequesterEmail(Request $request): void
+    {
+        $email = $request->input('requestor_email');
+
+        if (is_string($email)) {
+            $email = mb_strtolower(trim($email));
+            $request->merge(['requestor_email' => $email === '' ? null : $email]);
+        }
     }
 
     public function overdueTickets(Request $request)
@@ -326,6 +350,9 @@ class TicketingController extends Controller
             'dateActivities.dateCategory',
             'dateActivities.user',
             'comments.user',
+            'confirmation.completedBy',
+            'confirmation.survey',
+            'confirmation.mailLogs',
         ]);
 
         return $this->success('Ticket retrieved', ['result' => ['ticket' => new TicketDetailResource($ticket)]]);
@@ -341,6 +368,10 @@ class TicketingController extends Controller
 
         if ($ticket->ticketStatus->label === 'False Alarm') {
             return $this->error('A false-alarm ticket cannot be assigned.', 409);
+        }
+
+        if ($ticket->ticketStatus->label === 'Pending Confirmation') {
+            return $this->error("A ticket waiting for the requester's confirmation cannot be reassigned.", 409);
         }
 
         DB::transaction(function () use ($request, $ticket) {
@@ -364,40 +395,30 @@ class TicketingController extends Controller
         return $this->success('Ticket assigned successfully', ['result' => ['ticket' => $ticket->fresh()]]);
     }
 
-    public function markAsComplete(Ticket $ticket)
+    public function markAsComplete(CompleteTicketRequest $request, Ticket $ticket, CompletionConfirmationService $confirmations)
     {
         Gate::authorize('complete', $ticket);
 
-        if ($ticket->ticketStatus->label === 'Completed') {
-            return $this->error('The ticket is already completed.', 409);
+        try {
+            [$confirmation, $mailLog, $token] = $confirmations->complete($ticket, $request->user(), $request->validated('notes'));
+        } catch (ConfirmationException $e) {
+            return $this->error($e->getMessage(), $e->status);
         }
 
-        if ($ticket->ticketStatus->label === 'False Alarm') {
-            return $this->error('A false-alarm ticket cannot be completed.', 409);
-        }
+        $confirmations->dispatchMail($mailLog, $token);
 
-        $assignedUser = TicketDateActivity::where('ticket_id', $ticket->id)
-            ->where('date_category_id', DateCategory::where('category', 'Assigned Date')->value('id'))
-            ->value('user_id') ?? $ticket->assigned_user;
-
-        if ($assignedUser === null) {
-            return $this->error('An unassigned ticket cannot be completed.', 409);
-        }
-
-        DB::transaction(function () use ($ticket, $assignedUser) {
-            TicketDateActivity::create([
-                'ticket_id' => $ticket->id,
-                'date_category_id' => DateCategory::where('category', 'Completed Date')->value('id'),
-                'user_id' => $assignedUser, // Mark as completed by the assigned user
-                'status' => 1,
-            ]);
-
-            $ticket->update([
-                'status_id' => Status::where('label', 'Completed')->value('id'),
-            ]);
-        });
-
-        return $this->success('Ticket marked as complete', ['result' => ['ticket' => $ticket->fresh()]]);
+        return $this->success("Ticket completed and sent for the requester's confirmation", [
+            'result' => [
+                'ticket' => $ticket->fresh(),
+                'confirmation' => [
+                    'state' => $confirmation->state,
+                    'completed_at' => $confirmation->completed_at->toIso8601String(),
+                    'auto_close_at' => $confirmation->expires_at->toIso8601String(),
+                    'requester_email' => $confirmation->requester_email,
+                    'mail' => ['status' => $mailLog === null ? 'none' : 'pending'],
+                ],
+            ],
+        ]);
     }
 
     public function getDashboardStats(DashboardRequest $request)
@@ -433,6 +454,7 @@ class TicketingController extends Controller
             'completed' => (int) ($statusCounts['Completed'] ?? 0),
             'overdue' => (int) ($statusCounts['Overdue'] ?? 0),
             'false_alarm' => (int) ($statusCounts['False Alarm'] ?? 0),
+            'pending_confirmation' => (int) ($statusCounts['Pending Confirmation'] ?? 0),
         ];
 
         // The breakdown ignores the priority filter, so it always shows all
@@ -469,7 +491,7 @@ class TicketingController extends Controller
             ->where('tickets.department', $department)
             ->where('date_categories.category', 'Completed Date')
             ->whereBetween('ticket_date_activities.created_at', [$start, $end])
-            ->selectRaw('users.id, users.first_name, users.last_name, count(*) as completed_count')
+            ->selectRaw('users.id, users.first_name, users.last_name, count(distinct ticket_date_activities.ticket_id) as completed_count')
             ->groupBy('users.id', 'users.first_name', 'users.last_name')
             ->orderByDesc('completed_count')
             ->limit(5)

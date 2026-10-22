@@ -38,6 +38,11 @@ class PromoteOverdueTickets extends Command
                     $query->where('created_at', '<=', $cutoff)
                         ->whereHas('dateCategory', fn ($category) => $category->where('category', 'Requested Date'));
                 })
+                // A reopen restarts the clock: skip tickets reopened after the cutoff.
+                ->whereDoesntHave('dateActivities', function ($query) use ($cutoff) {
+                    $query->where('created_at', '>', $cutoff)
+                        ->whereHas('dateCategory', fn ($category) => $category->where('category', 'Reopened Date'));
+                })
                 ->update(['status_id' => $statusIds['Overdue']]);
         }
 

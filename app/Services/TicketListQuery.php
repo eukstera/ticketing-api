@@ -33,7 +33,7 @@ class TicketListQuery
         $this->applySort($rows, $request);
 
         $tickets = $rows
-            ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'falseAlarmActivity', 'devices'])
+            ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'falseAlarmActivity', 'reopenedActivity', 'devices'])
             ->withCount('comments')
             ->paginate($request->integer('per_page', 10))
             ->withQueryString();
@@ -78,6 +78,7 @@ class TicketListQuery
             'tickets.status_id',
             'tickets.priority_id',
             'tickets.ticket_number',
+            'tickets.requester_email',
             'status.label as status',
             'priority.level as priority',
             'priority.sla_days as priority_sla',

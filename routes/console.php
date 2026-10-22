@@ -9,3 +9,6 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('tickets:promote-overdue')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('tickets:retry-mail')->everyFiveMinutes()->withoutOverlapping();
+
+Schedule::command('tickets:auto-close-confirmations')->dailyAt('01:00')->timezone('Asia/Manila')->withoutOverlapping();

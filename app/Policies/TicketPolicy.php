@@ -42,6 +42,38 @@ class TicketPolicy
         );
     }
 
+    public function downloadJobOrder(User $user, Ticket $ticket): Response
+    {
+        return $this->allowIf(
+            $this->isInHandlingDepartment($user, $ticket),
+            'Only members of the handling department can download a job order.'
+        );
+    }
+
+    /**
+     * Department Heads pass in before(); nobody else may close for the requester.
+     */
+    public function closeOnBehalf(User $user, Ticket $ticket): Response
+    {
+        return Response::deny("Only Department Heads can close a ticket on the requester's behalf.");
+    }
+
+    public function resendConfirmation(User $user, Ticket $ticket): Response
+    {
+        return $this->allowIf(
+            $this->isInHandlingDepartment($user, $ticket),
+            'Only members of the handling department can resend the confirmation email.'
+        );
+    }
+
+    /**
+     * Department Heads pass in before(); nobody else may reopen.
+     */
+    public function reopen(User $user, Ticket $ticket): Response
+    {
+        return Response::deny('Only Department Heads can reopen a ticket.');
+    }
+
     public function complete(User $user, Ticket $ticket): Response
     {
         return $this->allowIf(

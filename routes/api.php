@@ -12,11 +12,16 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\FalseAlarmController;
+use App\Http\Controllers\JobOrderController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\NewTicketController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\PublicConfirmationController;
+use App\Http\Controllers\ReopenController;
 use App\Http\Controllers\ReportSignatoryController;
+use App\Http\Controllers\TicketConfirmationController;
 use App\Http\Controllers\TicketingController;
+use App\Http\Controllers\TrackConfirmationController;
 use App\Http\Controllers\TrackTicketController;
 use App\Http\Controllers\UserController;
 use Illuminate\Http\Request;
@@ -37,6 +42,18 @@ Route::get('/getTicketRequests', [TicketingController::class, 'getTicketRequests
 
 // public ticket tracking by ticket number and requester name
 Route::post('/track', [TrackTicketController::class, 'show'])->middleware('throttle:track');
+
+// requester confirms or disputes a completed ticket, then answers the satisfaction survey
+Route::middleware('throttle:confirmation')->group(function () {
+    Route::get('/confirm/{token}', [PublicConfirmationController::class, 'show']);
+    Route::post('/confirm/{token}/confirm', [PublicConfirmationController::class, 'confirm']);
+    Route::post('/confirm/{token}/dispute', [PublicConfirmationController::class, 'dispute']);
+    Route::post('/confirm/{token}/survey', [PublicConfirmationController::class, 'survey']);
+
+    Route::post('/track/confirm', [TrackConfirmationController::class, 'confirm']);
+    Route::post('/track/dispute', [TrackConfirmationController::class, 'dispute']);
+    Route::post('/track/survey', [TrackConfirmationController::class, 'survey']);
+});
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -88,6 +105,16 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // reject an untaken request as a false alarm
     Route::post('/tickets/{ticket}/false-alarm', FalseAlarmController::class);
+
+    // filled IT job order request + satisfaction survey workbook (.xlsx)
+    Route::get('/tickets/{ticket}/job-order', JobOrderController::class);
+
+    // staff side of the completion confirmation
+    Route::post('/tickets/{ticket}/confirmation/close', [TicketConfirmationController::class, 'close']);
+    Route::post('/tickets/{ticket}/confirmation/resend', [TicketConfirmationController::class, 'resend']);
+
+    // reopen a false-alarm ticket (Department Heads only)
+    Route::post('/tickets/{ticket}/reopen', ReopenController::class);
 
     // ticket detail
     Route::get('/tickets/{ticket}', [TicketingController::class, 'show']);

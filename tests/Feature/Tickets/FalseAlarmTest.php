@@ -169,7 +169,7 @@ class FalseAlarmTest extends ApiTestCase
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
             ->assertStatus(409)
             ->assertJsonPath('message', 'A false-alarm ticket cannot be assigned.');
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertStatus(409)
             ->assertJsonPath('message', 'A false-alarm ticket cannot be completed.');
     }
@@ -295,7 +295,7 @@ class FalseAlarmTest extends ApiTestCase
         $this->assertDatabaseHas('status', ['label' => 'False Alarm']);
         $this->assertSame(1, Status::where('label', 'False Alarm')->count());
         $this->assertDatabaseHas('date_categories', ['category' => 'False Alarm Date']);
-        $this->assertDatabaseCount('date_categories', 4);
+        $this->assertDatabaseCount('date_categories', 8);
         $this->assertSame(5, (int) Status::where('label', 'False Alarm')->value('id'));
     }
 }

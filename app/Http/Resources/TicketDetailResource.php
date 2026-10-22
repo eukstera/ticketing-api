@@ -20,7 +20,8 @@ class TicketDetailResource extends JsonResource
     public function toArray(Request $request): array
     {
         $requested = $this->dateActivities->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'Requested Date');
-        $dueAt = $this->dueAt($requested);
+        $clockStart = $this->clockStartedAt();
+        $dueAt = $this->dueAt();
 
         return [
             'id' => $this->id,
@@ -42,7 +43,7 @@ class TicketDetailResource extends JsonResource
             'is_overdue' => $this->isOverdue($dueAt),
             'due_at' => $dueAt?->toIso8601String(),
             'timeline' => $this->dateActivities
-                ->sortBy([['date_category_id', 'asc'], ['id', 'asc']])
+                ->sortBy(fn (TicketDateActivity $activity) => [$activity->dateCategory?->category === 'Requested Date' ? 0 : 1, $activity->id])
                 ->values()
                 ->map(fn (TicketDateActivity $activity) => [
                     'id' => $activity->id,
@@ -52,7 +53,11 @@ class TicketDetailResource extends JsonResource
                     'created_at' => $activity->created_at?->toIso8601String(),
                 ])
                 ->all(),
+            'requester_email' => $this->requester_email,
+            'clock_started_at' => $clockStart?->toIso8601String(),
             'false_alarm' => $this->falseAlarm(),
+            'reopened' => $this->reopened(),
+            'confirmation' => $this->confirmation ? (new ConfirmationStaffResource($this->confirmation))->resolve() : null,
             'comments' => $this->comments
                 ->sortBy([['created_at', 'asc'], ['id', 'asc']])
                 ->values()
@@ -70,13 +75,14 @@ class TicketDetailResource extends JsonResource
     }
 
     /**
-     * Who rejected the ticket as a false alarm, why and when; null otherwise.
+     * Who rejected the ticket as a false alarm, why and when; null unless it
+     * is a false alarm right now (the latest rejection if it was rejected twice).
      *
      * @return array{reason: ?string, marked_by: ?array<string, mixed>, marked_at: ?string}|null
      */
     private function falseAlarm(): ?array
     {
-        $activity = $this->dateActivities->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'False Alarm Date');
+        $activity = $this->ticketStatus->label === 'False Alarm' ? $this->latestActivity('False Alarm Date') : null;
 
         if ($activity === null) {
             return null;
@@ -86,6 +92,26 @@ class TicketDetailResource extends JsonResource
             'reason' => $activity->remarks,
             'marked_by' => $activity->user ? $this->person($activity->user) : null,
             'marked_at' => $activity->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * The latest reopen: who, why (optional) and when; null if never reopened.
+     *
+     * @return array{reason: ?string, reopened_by: ?array<string, mixed>, reopened_at: ?string}|null
+     */
+    private function reopened(): ?array
+    {
+        $activity = $this->latestActivity('Reopened Date');
+
+        if ($activity === null) {
+            return null;
+        }
+
+        return [
+            'reason' => $activity->remarks,
+            'reopened_by' => $activity->user ? $this->person($activity->user) : null,
+            'reopened_at' => $activity->created_at?->toIso8601String(),
         ];
     }
 
@@ -137,21 +163,6 @@ class TicketDetailResource extends JsonResource
     private function person(User $user): array
     {
         return ['id' => $user->id, 'first_name' => $user->first_name, 'last_name' => $user->last_name];
-    }
-
-    /**
-     * Whole calendar days, matching tickets:promote-overdue: a ticket is due
-     * at the start of the day sla_days after it was requested.
-     */
-    private function dueAt(?TicketDateActivity $requested): ?Carbon
-    {
-        $days = (int) $this->priority->sla_days;
-
-        if ($requested === null || $days <= 0) {
-            return null;
-        }
-
-        return $requested->created_at->copy()->addDays($days)->startOfDay();
     }
 
     private function isOverdue(?Carbon $dueAt): bool

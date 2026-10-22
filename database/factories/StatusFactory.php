@@ -20,6 +20,8 @@ class StatusFactory extends Factory
 
     public const FALSE_ALARM = 'False Alarm';
 
+    public const PENDING_CONFIRMATION = 'Pending Confirmation';
+
     protected $model = Status::class;
 
     /**

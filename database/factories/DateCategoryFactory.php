@@ -18,6 +18,14 @@ class DateCategoryFactory extends Factory
 
     public const FALSE_ALARM = 'False Alarm Date';
 
+    public const REOPENED = 'Reopened Date';
+
+    public const CONFIRMED = 'Confirmed Date';
+
+    public const DISPUTED = 'Disputed Date';
+
+    public const AUTO_CLOSED = 'Auto-closed Date';
+
     protected $model = DateCategory::class;
 
     /**

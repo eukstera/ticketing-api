@@ -17,6 +17,10 @@ class DateCategorySeeder extends Seeder
             ['category' => 'Assigned Date', 'created_at' => $now, 'updated_at' => $now],
             ['category' => 'Completed Date', 'created_at' => $now, 'updated_at' => $now],
             ['category' => 'False Alarm Date', 'created_at' => $now, 'updated_at' => $now],
+            ['category' => 'Reopened Date', 'created_at' => $now, 'updated_at' => $now],
+            ['category' => 'Confirmed Date', 'created_at' => $now, 'updated_at' => $now],
+            ['category' => 'Disputed Date', 'created_at' => $now, 'updated_at' => $now],
+            ['category' => 'Auto-closed Date', 'created_at' => $now, 'updated_at' => $now],
         ];
 
         DateCategory::insert($data);

@@ -127,6 +127,32 @@ Use the standard cron entry instead of the service:
 * * * * * cd /path/to/app && php artisan schedule:run >> /dev/null 2>&1
 ```
 
+## Completion confirmation and email
+
+A technician completes a ticket with notes; the ticket becomes **Pending Confirmation** and the requester is asked to confirm or dispute it (emailed link, or Track Ticket) and then fills in the Customer Satisfaction Survey. A Department Head can close a waiting ticket on the requester's behalf. Tickets nobody answers close automatically after `TICKET_AUTOCLOSE_DAYS` calendar days (default 30; `tickets:auto-close-confirmations` runs daily at 01:00 Asia/Manila through the scheduler).
+
+### Settings (`.env` on the server)
+
+Fill these in on the server; never commit real values.
+
+| Variable | Purpose |
+|---|---|
+| `MAIL_MAILER` | `smtp` to send real mail (`log` only writes mails to `storage/logs`) |
+| `MAIL_HOST`, `MAIL_PORT` | SMTP server and port (587 for STARTTLS) |
+| `MAIL_SCHEME` | `smtp` for STARTTLS on 587, `smtps` for implicit TLS on 465 |
+| `MAIL_USERNAME`, `MAIL_PASSWORD` | SMTP login (for Gmail use an app password) |
+| `MAIL_FROM_ADDRESS`, `MAIL_FROM_NAME` | Sender shown to requesters |
+| `REQUESTOR_PORTAL_URL` | Base URL of the requestor portal, no trailing path; the link is `{REQUESTOR_PORTAL_URL}/confirm/{token}` |
+| `TICKET_AUTOCLOSE_DAYS` | Days before an unanswered completion closes by itself (default 30) |
+
+The server must be able to reach the SMTP host. Run `php artisan migrate --force` and `php artisan db:seed --class=ReferenceDataSeeder --force` after deploying (adds the status and the timeline categories).
+
+### How mail is sent without a queue worker
+
+No queue worker runs today and none is needed. Each email is a `SendTicketMail` job dispatched with `dispatchAfterResponse()`: it runs in the same process right after the HTTP response, records the result in `ticket_mail_log` (pending, sent, failed or gave_up, with attempts and the last error) and never blocks the request. Failed sends are retried by the scheduler (`tickets:retry-mail`, every 5 minutes, waiting 5, 15, 30 and 60 minutes, at most 5 attempts). A retry issues a fresh link, because only a hash of each token is stored. Staff can also resend from the ticket (`POST /api/tickets/{ticket}/confirmation/resend`), and the Track Ticket page keeps working if email fails.
+
+The job class implements `ShouldQueue` and the `jobs` and `failed_jobs` tables exist, so a real worker can be switched on later without code changes: keep `QUEUE_CONNECTION=database`, dispatch normally and run `php artisan queue:work` as a service. Note that with a worker the link token is part of the queued payload.
+
 ## Contributing
 
 Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).

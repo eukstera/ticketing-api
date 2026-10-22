@@ -13,16 +13,17 @@ class TicketCompleteTest extends ApiTestCase
         $assignee = $this->actingAsUser($this->itUser());
         $ticket = TicketFactory::new()->assigned($assignee)->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertOk()
             ->assertJsonPath('success', true)
             ->assertJsonPath('result.ticket.id', $ticket->id);
 
-        $this->assertSame(3, (int) $ticket->fresh()->status_id);
+        $this->assertSame(6, (int) $ticket->fresh()->status_id);
         $this->assertDatabaseHas('ticket_date_activities', [
             'ticket_id' => $ticket->id,
             'date_category_id' => 3,
             'user_id' => $assignee->id,
+            'remarks' => 'Replaced the faulty power supply and tested.',
         ]);
     }
 
@@ -32,7 +33,7 @@ class TicketCompleteTest extends ApiTestCase
         $this->actingAsUser($this->itUser());
         $ticket = TicketFactory::new()->assigned($assignee)->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")->assertOk();
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])->assertOk();
 
         $this->assertDatabaseHas('ticket_date_activities', [
             'ticket_id' => $ticket->id,
@@ -46,7 +47,7 @@ class TicketCompleteTest extends ApiTestCase
         $this->actingAsUser($this->itUser());
         $ticket = $this->openItTicket();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertStatus(409)
             ->assertJsonPath('success', false);
 
@@ -60,7 +61,7 @@ class TicketCompleteTest extends ApiTestCase
         $ticket = TicketFactory::new()->assigned($assignee)->completed()->create();
         $before = TicketDateActivity::where('ticket_id', $ticket->id)->count();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertStatus(409)
             ->assertJsonPath('success', false);
 
@@ -72,9 +73,9 @@ class TicketCompleteTest extends ApiTestCase
         $assignee = $this->actingAsUser($this->itUser());
         $ticket = TicketFactory::new()->assigned($assignee)->overdue()->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")->assertOk();
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])->assertOk();
 
-        $this->assertSame(3, (int) $ticket->fresh()->status_id);
+        $this->assertSame(6, (int) $ticket->fresh()->status_id);
     }
 
     public function test_user_from_another_department_cannot_complete(): void
@@ -83,7 +84,7 @@ class TicketCompleteTest extends ApiTestCase
         $this->actingAsUser($this->engineeringUser());
         $ticket = TicketFactory::new()->assigned($assignee)->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertForbidden()
             ->assertJsonPath('success', false);
 
@@ -101,6 +102,6 @@ class TicketCompleteTest extends ApiTestCase
     {
         $ticket = TicketFactory::new()->assigned($this->itUser())->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete")->assertUnauthorized();
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])->assertUnauthorized();
     }
 }

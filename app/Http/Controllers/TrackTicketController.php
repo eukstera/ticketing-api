@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TrackTicketRequest;
 use App\Models\Ticket;
+use App\Models\TicketConfirmation;
 use App\Models\TicketDateActivity;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
@@ -54,6 +55,25 @@ class TrackTicketController extends Controller
 
         if ($withName) {
             $payload['details'] = $ticket->itDetails ? $ticket->itDetails->remarks : $ticket->engineeringDetails?->scope_of_work;
+
+            $confirmation = $ticket->confirmations()->with('survey')->latest('id')->first();
+
+            if ($confirmation !== null) {
+                $answerable = $confirmation->isPending() && ! $confirmation->hasExpired();
+
+                $payload['confirmation'] = [
+                    'state' => $confirmation->state,
+                    'can_confirm' => $answerable,
+                    'can_dispute' => $answerable,
+                    'survey' => [
+                        'required' => $confirmation->state === TicketConfirmation::CONFIRMED && $confirmation->survey === null,
+                        'submitted' => $confirmation->survey !== null,
+                    ],
+                    'completion_notes' => $confirmation->completion_notes,
+                    'completed_at' => $confirmation->completed_at?->toIso8601String(),
+                    'auto_close_at' => $confirmation->expires_at?->toIso8601String(),
+                ];
+            }
 
             if ($ticket->ticketStatus->label === 'False Alarm') {
                 $payload['false_alarm_reason'] = $ticket->dateActivities

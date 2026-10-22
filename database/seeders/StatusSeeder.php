@@ -21,6 +21,7 @@ class StatusSeeder extends Seeder
             ['label' => 'Completed', 'created_at' => $now, 'updated_at' => $now],
             ['label' => 'Overdue', 'created_at' => $now, 'updated_at' => $now],
             ['label' => 'False Alarm', 'created_at' => $now, 'updated_at' => $now],
+            ['label' => 'Pending Confirmation', 'created_at' => $now, 'updated_at' => $now],
         ];
 
         Status::insert($data);
