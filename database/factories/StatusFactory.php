@@ -18,6 +18,8 @@ class StatusFactory extends Factory
 
     public const OVERDUE = 'Overdue';
 
+    public const FALSE_ALARM = 'False Alarm';
+
     protected $model = Status::class;
 
     /**

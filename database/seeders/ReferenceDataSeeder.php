@@ -37,6 +37,7 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 2, 'label' => 'In-progress'],
             ['id' => 3, 'label' => 'Completed'],
             ['id' => 4, 'label' => 'Overdue'],
+            ['id' => 5, 'label' => 'False Alarm'],
         ]);
 
         $this->seedTable('priority', [
@@ -53,6 +54,7 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 1, 'category' => 'Requested Date'],
             ['id' => 2, 'category' => 'Assigned Date'],
             ['id' => 3, 'category' => 'Completed Date'],
+            ['id' => 4, 'category' => 'False Alarm Date'],
         ]);
 
         $this->seedTable('type_of_concern', [

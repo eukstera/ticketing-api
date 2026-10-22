@@ -54,6 +54,12 @@ class TrackTicketController extends Controller
 
         if ($withName) {
             $payload['details'] = $ticket->itDetails ? $ticket->itDetails->remarks : $ticket->engineeringDetails?->scope_of_work;
+
+            if ($ticket->ticketStatus->label === 'False Alarm') {
+                $payload['false_alarm_reason'] = $ticket->dateActivities
+                    ->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'False Alarm Date')
+                    ?->remarks;
+            }
         }
 
         return $this->success('Ticket found', ['result' => ['ticket' => $payload]]);

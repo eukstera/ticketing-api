@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ReportSignatoryController as AdminReportSignatory
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\FalseAlarmController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\NewTicketController;
 use App\Http\Controllers\ProfileController;
@@ -84,6 +85,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // new tickets after an id cursor for the alarm poll (must precede /tickets/{ticket})
     Route::get('/tickets/new', [NewTicketController::class, 'index']);
+
+    // reject an untaken request as a false alarm
+    Route::post('/tickets/{ticket}/false-alarm', FalseAlarmController::class);
 
     // ticket detail
     Route::get('/tickets/{ticket}', [TicketingController::class, 'show']);

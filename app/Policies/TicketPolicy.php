@@ -34,6 +34,14 @@ class TicketPolicy
         );
     }
 
+    public function markFalseAlarm(User $user, Ticket $ticket): Response
+    {
+        return $this->allowIf(
+            $this->isInHandlingDepartment($user, $ticket),
+            'Only members of the handling department can mark a ticket as a false alarm.'
+        );
+    }
+
     public function complete(User $user, Ticket $ticket): Response
     {
         return $this->allowIf(

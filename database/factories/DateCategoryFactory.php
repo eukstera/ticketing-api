@@ -16,6 +16,8 @@ class DateCategoryFactory extends Factory
 
     public const COMPLETED = 'Completed Date';
 
+    public const FALSE_ALARM = 'False Alarm Date';
+
     protected $model = DateCategory::class;
 
     /**

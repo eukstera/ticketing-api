@@ -48,9 +48,11 @@ class TicketDetailResource extends JsonResource
                     'id' => $activity->id,
                     'category' => $activity->dateCategory?->category,
                     'user' => $activity->display_name,
+                    'remarks' => $activity->remarks,
                     'created_at' => $activity->created_at?->toIso8601String(),
                 ])
                 ->all(),
+            'false_alarm' => $this->falseAlarm(),
             'comments' => $this->comments
                 ->sortBy([['created_at', 'asc'], ['id', 'asc']])
                 ->values()
@@ -64,6 +66,26 @@ class TicketDetailResource extends JsonResource
                 ->all(),
             'created_at' => $this->created_at?->toIso8601String(),
             'updated_at' => $this->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Who rejected the ticket as a false alarm, why and when; null otherwise.
+     *
+     * @return array{reason: ?string, marked_by: ?array<string, mixed>, marked_at: ?string}|null
+     */
+    private function falseAlarm(): ?array
+    {
+        $activity = $this->dateActivities->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'False Alarm Date');
+
+        if ($activity === null) {
+            return null;
+        }
+
+        return [
+            'reason' => $activity->remarks,
+            'marked_by' => $activity->user ? $this->person($activity->user) : null,
+            'marked_at' => $activity->created_at?->toIso8601String(),
         ];
     }
 
@@ -136,7 +158,7 @@ class TicketDetailResource extends JsonResource
     {
         return match ($this->ticketStatus->label) {
             'Overdue' => true,
-            'Completed' => false,
+            'Completed', 'False Alarm' => false,
             default => $dueAt !== null && now()->greaterThanOrEqualTo($dueAt),
         };
     }

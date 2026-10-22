@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\NewTicketsRequest;
 use App\Models\DateCategory;
+use App\Models\Status;
 use App\Models\Ticket;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Database\Eloquent\Builder;
@@ -58,6 +59,7 @@ class NewTicketController extends Controller
             })
             ->where('tickets.department', $departmentId)
             ->where('tickets.id', '>', $afterId)
+            ->where('tickets.status_id', '!=', Status::where('label', 'False Alarm')->value('id') ?? 0)
             ->orderBy('tickets.id')
             ->select(
                 'tickets.id',

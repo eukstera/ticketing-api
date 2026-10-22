@@ -281,7 +281,7 @@ class TicketingController extends Controller
             ->addSelect(
                 'type_of_concern.label as type_of_concern',
                 'type_of_tech_support',
-                'remarks'
+                'tickets_it.remarks'
             )
             ->groupBy('tickets_it.id')
             ->get();
@@ -339,6 +339,10 @@ class TicketingController extends Controller
             return $this->error('A completed ticket cannot be assigned.', 409);
         }
 
+        if ($ticket->ticketStatus->label === 'False Alarm') {
+            return $this->error('A false-alarm ticket cannot be assigned.', 409);
+        }
+
         DB::transaction(function () use ($request, $ticket) {
             $userId = $request->validated('user_id');
 
@@ -366,6 +370,10 @@ class TicketingController extends Controller
 
         if ($ticket->ticketStatus->label === 'Completed') {
             return $this->error('The ticket is already completed.', 409);
+        }
+
+        if ($ticket->ticketStatus->label === 'False Alarm') {
+            return $this->error('A false-alarm ticket cannot be completed.', 409);
         }
 
         $assignedUser = TicketDateActivity::where('ticket_id', $ticket->id)
@@ -424,6 +432,7 @@ class TicketingController extends Controller
             'in_progress' => (int) ($statusCounts['In-progress'] ?? 0),
             'completed' => (int) ($statusCounts['Completed'] ?? 0),
             'overdue' => (int) ($statusCounts['Overdue'] ?? 0),
+            'false_alarm' => (int) ($statusCounts['False Alarm'] ?? 0),
         ];
 
         // The breakdown ignores the priority filter, so it always shows all
@@ -447,7 +456,8 @@ class TicketingController extends Controller
 
         $todayBase = Ticket::join('status', 'status.id', 'tickets.status_id')
             ->where('tickets.department', $department)
-            ->whereDate('tickets.created_at', $today);
+            ->whereDate('tickets.created_at', $today)
+            ->where('status.label', '!=', 'False Alarm');
 
         $todayTotal = (clone $todayBase)->count();
         $todayCompleted = (clone $todayBase)->where('status.label', 'Completed')->count();

@@ -61,7 +61,7 @@ class TicketDetailTest extends ApiTestCase
             ->assertJsonStructure(['result' => ['ticket' => [
                 'id', 'ticket_number', 'department' => ['id', 'name'], 'status' => ['id', 'label'],
                 'priority' => ['id', 'level', 'sla_days'], 'type', 'details', 'requester', 'assignee',
-                'is_overdue', 'due_at', 'timeline', 'comments', 'created_at', 'updated_at',
+                'is_overdue', 'due_at', 'timeline', 'false_alarm', 'comments', 'created_at', 'updated_at',
             ]]]);
         $this->assertIsInt($response->json('result.ticket.priority.sla_days'));
         $this->assertSame(
@@ -125,7 +125,7 @@ class TicketDetailTest extends ApiTestCase
         );
         $this->assertSame('Walk-in Requester', $timeline[0]['user']);
         $this->assertSame(trim("{$assignee->first_name} {$assignee->last_name}"), $timeline[1]['user']);
-        $this->assertSame(['id', 'category', 'user', 'created_at'], array_keys($timeline[0]));
+        $this->assertSame(['id', 'category', 'user', 'remarks', 'created_at'], array_keys($timeline[0]));
     }
 
     public function test_requester_from_another_department_can_view_their_ticket(): void

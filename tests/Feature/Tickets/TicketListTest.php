@@ -230,7 +230,7 @@ class TicketListTest extends ApiTestCase
 
         $this->assertSame(['id' => null, 'label' => 'All', 'count' => 3], $counts[0]);
         $byLabel = collect($counts)->keyBy('label');
-        $this->assertSame(['All', 'Open', 'In-progress', 'Completed', 'Overdue'], $byLabel->keys()->all());
+        $this->assertSame(['All', 'Open', 'In-progress', 'Completed', 'Overdue', 'False Alarm'], $byLabel->keys()->all());
         $this->assertSame(2, $byLabel['Open']['count']);
         $this->assertSame(0, $byLabel['In-progress']['count']);
         $this->assertSame(1, $byLabel['Completed']['count']);

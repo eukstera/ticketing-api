@@ -17,6 +17,7 @@ class TicketDateActivity extends Model
         'user_id',
         'requestor',
         'requestorId',
+        'remarks',
         'status',
     ];
 

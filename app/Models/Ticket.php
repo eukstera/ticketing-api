@@ -84,6 +84,13 @@ class Ticket extends Model
             ->with('user');
     }
 
+    public function falseAlarmActivity()
+    {
+        return $this->hasOne(TicketDateActivity::class)
+            ->whereHas('dateCategory', fn ($q) => $q->where('category', 'False Alarm Date'))
+            ->with('user');
+    }
+
     public function requestedActivity()
     {
         return $this->hasOne(TicketDateActivity::class)
