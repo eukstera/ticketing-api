@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\ReportSignatory;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -64,6 +65,25 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 1, 'label' => 'Electrical'],
             ['id' => 2, 'label' => 'Others'],
         ]);
+
+        $this->seedDefaultReportSignatory();
+    }
+
+    /**
+     * Adds the original "Approved by" signatory, and makes it the default
+     * only when none exists yet, so reruns never duplicate it or undo an
+     * admin's later edits.
+     */
+    private function seedDefaultReportSignatory(): void
+    {
+        $signatory = ReportSignatory::query()->firstOrCreate(
+            ['name' => 'JOSEFA SOCORRO MOLON PATAWARAN', 'title' => 'CMT II – ICTS'],
+            ['is_default' => false, 'status' => true],
+        );
+
+        if ($signatory->wasRecentlyCreated && ! ReportSignatory::query()->where('is_default', true)->exists()) {
+            $signatory->update(['is_default' => true]);
+        }
     }
 
     /**
