@@ -29,6 +29,10 @@ class AuthorizationServiceProvider extends ServiceProvider
             ? Response::allow()
             : Response::deny('Only Department Heads can manage this.'));
 
+        Gate::define('view-new-tickets', fn (User $user): Response => $user->department_id === 1 || Gate::forUser($user)->allows('admin')
+            ? Response::allow()
+            : Response::deny('Only IT staff and Department Heads can see new tickets.'));
+
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(
             strtolower((string) $request->input('email')).'|'.$request->ip()
         ));

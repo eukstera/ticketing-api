@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LookupController;
+use App\Http\Controllers\NewTicketController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportSignatoryController;
 use App\Http\Controllers\TicketingController;
@@ -80,6 +81,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // assign ticket
     Route::post('/tickets/{ticket}/assign', [TicketingController::class, 'assignTicket']);
+
+    // new tickets after an id cursor for the alarm poll (must precede /tickets/{ticket})
+    Route::get('/tickets/new', [NewTicketController::class, 'index']);
 
     // ticket detail
     Route::get('/tickets/{ticket}', [TicketingController::class, 'show']);
