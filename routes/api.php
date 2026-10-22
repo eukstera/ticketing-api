@@ -7,11 +7,13 @@ use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DesignationController;
 use App\Http\Controllers\Admin\NatureOfWorkController;
 use App\Http\Controllers\Admin\PriorityController;
+use App\Http\Controllers\Admin\ReportSignatoryController as AdminReportSignatoryController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\ReportSignatoryController;
 use App\Http\Controllers\TicketingController;
 use App\Http\Controllers\TrackTicketController;
 use App\Http\Controllers\UserController;
@@ -106,6 +108,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Generate accomplishment report
     Route::get('/reports/accomplishment', [AccomplishmentReportController::class, 'generate']);
 
+    // active signatories for the report download dropdown
+    Route::get('/report-signatories', [ReportSignatoryController::class, 'index']);
+
     // admin lookup CRUD (admin gate is enforced in the controllers); DELETE is a soft deactivate
     Route::prefix('admin')->group(function () {
         $resource = fn (string $path, string $controller, array $only) => Route::apiResource($path, $controller)
@@ -119,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
         $resource('priorities', PriorityController::class, ['index', 'store', 'update', 'destroy']);
         $resource('concern-types', ConcernTypeController::class, ['index', 'store', 'update', 'destroy']);
         $resource('nature-of-work', NatureOfWorkController::class, ['index', 'store', 'update', 'destroy']);
+        $resource('report-signatories', AdminReportSignatoryController::class, ['index', 'store', 'update', 'destroy']);
     });
 
 });
