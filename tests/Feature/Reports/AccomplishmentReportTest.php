@@ -4,6 +4,7 @@ namespace Tests\Feature\Reports;
 
 use App\Models\User;
 use Database\Factories\CommentFactory;
+use Database\Factories\ReportSignatoryFactory;
 use Database\Factories\TicketFactory;
 use Tests\ApiTestCase;
 
@@ -133,6 +134,112 @@ class AccomplishmentReportTest extends ApiTestCase
 
         $this->assertStringContainsString('Mine', $text);
         $this->assertStringNotContainsString('Theirs', $text);
+    }
+
+    private function reportText(array $extra = []): string
+    {
+        return $this->docxText(
+            $this->get('/api/reports/accomplishment?'.http_build_query($this->range() + $extra))
+                ->assertOk()->baseResponse->getFile()->getPathname()
+        );
+    }
+
+    public function test_report_falls_back_to_the_built_in_signatory(): void
+    {
+        $this->actingAsUser($this->itUser());
+
+        $this->assertStringContainsString('JOSEFA SOCORRO MOLON PATAWARAN', $this->reportText());
+    }
+
+    public function test_report_uses_the_saved_default_signatory(): void
+    {
+        $this->actingAsUser($this->itUser());
+        ReportSignatoryFactory::new()->default()->create(['name' => 'Default Person', 'title' => 'Default Title']);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('DEFAULT PERSON', $text);
+        $this->assertStringContainsString('Default Title', $text);
+        $this->assertStringNotContainsString('JOSEFA', $text);
+    }
+
+    public function test_report_uses_the_chosen_signatory_over_the_default(): void
+    {
+        $this->actingAsUser($this->itUser());
+        ReportSignatoryFactory::new()->default()->create(['name' => 'Default Person', 'title' => 'Default Title']);
+        $chosen = ReportSignatoryFactory::new()->create(['name' => 'Chosen Person', 'title' => 'Chosen Title']);
+
+        $text = $this->reportText(['signatory_id' => $chosen->id]);
+
+        $this->assertStringContainsString('CHOSEN PERSON', $text);
+        $this->assertStringContainsString('Chosen Title', $text);
+        $this->assertStringNotContainsString('DEFAULT PERSON', $text);
+    }
+
+    public function test_adhoc_signatory_overrides_a_chosen_one(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $chosen = ReportSignatoryFactory::new()->create(['name' => 'Chosen Person', 'title' => 'Chosen Title']);
+
+        $text = $this->reportText([
+            'signatory_id' => $chosen->id,
+            'signatory_name' => 'One Off',
+            'signatory_title' => 'Acting Head',
+        ]);
+
+        $this->assertStringContainsString('ONE OFF', $text);
+        $this->assertStringContainsString('Acting Head', $text);
+        $this->assertStringNotContainsString('CHOSEN PERSON', $text);
+    }
+
+    public function test_inactive_default_signatory_is_ignored(): void
+    {
+        $this->actingAsUser($this->itUser());
+        ReportSignatoryFactory::new()->default()->inactive()->create(['name' => 'Retired Person', 'title' => 'Old']);
+
+        $this->assertStringContainsString('JOSEFA', $this->reportText());
+    }
+
+    public function test_signatory_name_and_title_must_come_together(): void
+    {
+        $this->actingAsUser($this->itUser());
+
+        $this->getJson('/api/reports/accomplishment?'.http_build_query($this->range() + ['signatory_name' => 'Only Name']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['signatory_title']);
+
+        $this->getJson('/api/reports/accomplishment?'.http_build_query($this->range() + ['signatory_title' => 'Only Title']))
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['signatory_name']);
+    }
+
+    public function test_unknown_or_inactive_signatory_id_is_rejected(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $inactive = ReportSignatoryFactory::new()->inactive()->create();
+
+        foreach ([9999, $inactive->id] as $id) {
+            $this->getJson('/api/reports/accomplishment?'.http_build_query($this->range() + ['signatory_id' => $id]))
+                ->assertUnprocessable()
+                ->assertJsonValidationErrors(['signatory_id']);
+        }
+    }
+
+    public function test_download_has_docx_content_type_and_a_safe_filename(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $user->update(['last_name' => 'De/La:Cruz']);
+
+        $response = $this->get('/api/reports/accomplishment?'.http_build_query($this->range()))->assertOk();
+
+        $this->assertSame(
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            $response->headers->get('Content-Type')
+        );
+        $disposition = $response->headers->get('Content-Disposition');
+        $this->assertStringContainsString('attachment', $disposition);
+        $this->assertStringNotContainsString('/', $disposition);
+        $this->assertStringContainsString('Report.docx', $disposition);
     }
 
     /**
