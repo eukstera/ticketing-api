@@ -4,15 +4,21 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\AccomplishmentReportRequest;
 use App\Models\Comment;
+use App\Models\ReportSignatory;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Gate;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use Throwable;
 
 class AccomplishmentReportController extends Controller
 {
+    private const FALLBACK_SIGNATORY_NAME = 'JOSEFA SOCORRO MOLON PATAWARAN';
+
+    private const FALLBACK_SIGNATORY_TITLE = 'CMT II – ICTS';
+
     public function generate(AccomplishmentReportRequest $request)
     {
         $userId = (int) ($request->validated('user_id') ?? $request->user()->id);
@@ -35,8 +41,7 @@ class AccomplishmentReportController extends Controller
             : '';
         $preparedByPosition = $preparedByUser?->designation?->designation ?? '';
 
-        $approvedByName = 'JOSEFA SOCORRO MOLON PATAWARAN';
-        $approvedByPosition = 'CMT II – ICTS';
+        [$approvedByName, $approvedByPosition] = $this->resolveSignatory($request);
 
         $comments = Comment::with('ticket')
             ->select('comments.*', 'ticket_date_activities.requestor as activity_requestor')
@@ -240,12 +245,51 @@ class AccomplishmentReportController extends Controller
             : $dateFrom->format('F j').' - '.$dateTo->format('F j');
 
         $filename = ($preparedByUser?->last_name ?? 'Accomplishment').' '.$rangeLabel.' Report.docx';
+        $filename = trim(preg_replace('/[\\\\\/:*?"<>|\r\n]+/', ' ', $filename));
         $tempFile = tempnam(sys_get_temp_dir(), 'dar');
 
-        $writer = IOFactory::createWriter($phpWord, 'Word2007');
-        $writer->save($tempFile);
+        try {
+            $writer = IOFactory::createWriter($phpWord, 'Word2007');
+            $writer->save($tempFile);
+        } catch (Throwable $e) {
+            @unlink($tempFile);
+            report($e);
 
-        return response()->download($tempFile, $filename)->deleteFileAfterSend(true);
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate report.',
+            ], 500);
+        }
+
+        return response()->download($tempFile, $filename, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * "Approved by" block: ad-hoc name and title, else the chosen saved
+     * signatory, else the saved default, else the built-in fallback.
+     *
+     * @return array{0: string, 1: string}
+     */
+    private function resolveSignatory(AccomplishmentReportRequest $request): array
+    {
+        if ($request->filled('signatory_name')) {
+            return [
+                strtoupper(trim($request->validated('signatory_name'))),
+                trim($request->validated('signatory_title')),
+            ];
+        }
+
+        $signatory = $request->filled('signatory_id')
+            ? ReportSignatory::query()->find($request->integer('signatory_id'))
+            : ReportSignatory::query()->where('is_default', true)->where('status', true)->first();
+
+        if ($signatory !== null) {
+            return [strtoupper($signatory->name), $signatory->title];
+        }
+
+        return [self::FALLBACK_SIGNATORY_NAME, self::FALLBACK_SIGNATORY_TITLE];
     }
 
     /**
