@@ -61,6 +61,14 @@ class User extends Authenticatable
         return $this->hasMany(Ticket::class, 'assigned_user');
     }
 
+    /**
+     * Encoders have read-only access to their own department, plus exports.
+     */
+    public function isEncoder(): bool
+    {
+        return $this->role?->role === 'Encoder';
+    }
+
     public function comments(): HasMany
     {
         return $this->hasMany(Comment::class);

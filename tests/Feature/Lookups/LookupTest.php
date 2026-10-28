@@ -88,6 +88,6 @@ class LookupTest extends ApiTestCase
 
         $response->assertOk();
         $names = collect($response->json('result.roles'))->pluck('name')->all();
-        $this->assertEqualsCanonicalizing(['Normal User', 'Department Head'], $names);
+        $this->assertEqualsCanonicalizing(['Normal User', 'Department Head', 'Encoder'], $names);
     }
 }

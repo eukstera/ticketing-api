@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateCommentRequest;
 use App\Http\Resources\CommentResource;
 use App\Models\Comment;
 use App\Models\Ticket;
+use App\Policies\TicketPolicy;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,6 +83,10 @@ class CommentController extends Controller
     {
         $user = $request->user();
         $isAuthor = (int) $comment->user_id === $user->id;
+
+        if ($user->isEncoder()) {
+            return $this->forbidden(TicketPolicy::ENCODER_MESSAGE);
+        }
 
         if (! $isAuthor && Gate::forUser($user)->denies('admin')) {
             return $this->forbidden('You can only delete your own comments.');

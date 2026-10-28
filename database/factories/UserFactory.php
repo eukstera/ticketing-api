@@ -49,6 +49,11 @@ class UserFactory extends Factory
         return $this->state(fn () => ['role_id' => RoleFactory::named(RoleFactory::DEPARTMENT_HEAD)->id]);
     }
 
+    public function encoder(): static
+    {
+        return $this->state(fn () => ['role_id' => RoleFactory::named(RoleFactory::ENCODER)->id]);
+    }
+
     public function inDepartment(Department|int $department): static
     {
         $departmentId = $department instanceof Department ? $department->id : $department;

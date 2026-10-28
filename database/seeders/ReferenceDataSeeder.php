@@ -20,6 +20,7 @@ class ReferenceDataSeeder extends Seeder
         $this->seedTable('roles', [
             ['id' => 1, 'role' => 'Normal User'],
             ['id' => 2, 'role' => 'Department Head'],
+            ['id' => 3, 'role' => 'Encoder'],
         ]);
 
         $this->seedTable('departments', [

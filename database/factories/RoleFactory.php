@@ -14,6 +14,8 @@ class RoleFactory extends Factory
 
     public const DEPARTMENT_HEAD = 'Department Head';
 
+    public const ENCODER = 'Encoder';
+
     protected $model = Role::class;
 
     /**
@@ -35,6 +37,11 @@ class RoleFactory extends Factory
     public function departmentHead(): static
     {
         return $this->state(['role' => self::DEPARTMENT_HEAD]);
+    }
+
+    public function encoder(): static
+    {
+        return $this->state(['role' => self::ENCODER]);
     }
 
     public static function named(string $name): Role

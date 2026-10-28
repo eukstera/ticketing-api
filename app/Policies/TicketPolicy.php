@@ -10,12 +10,25 @@ use Illuminate\Support\Facades\Gate;
 
 class TicketPolicy
 {
+    public const ENCODER_MESSAGE = 'Encoders have read-only access.';
+
+    /**
+     * Every action that changes a ticket; Encoders may only view and export.
+     *
+     * @var list<string>
+     */
+    private const ENCODER_BLOCKED = ['assign', 'take', 'markFalseAlarm', 'complete', 'reopen', 'closeOnBehalf', 'resendConfirmation', 'comment'];
+
     /**
      * Administrators pass every ticket ability except completing: only the
      * member who took a ticket completes it.
      */
-    public function before(User $user, string $ability): ?bool
+    public function before(User $user, string $ability): Response|bool|null
     {
+        if ($user->isEncoder() && in_array($ability, self::ENCODER_BLOCKED, true)) {
+            return Response::deny(self::ENCODER_MESSAGE);
+        }
+
         if ($ability === 'complete') {
             return null;
         }

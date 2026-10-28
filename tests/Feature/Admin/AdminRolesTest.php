@@ -132,7 +132,7 @@ class AdminRolesTest extends AdminResourceTestCase
         $roles = $this->getJson('/api/roles')->assertOk()->json('result.roles');
 
         $this->assertNotContains(self::MARKER.' Hidden', array_column($roles, 'name'));
-        $this->assertEqualsCanonicalizing(['Normal User', 'Department Head'], array_column($roles, 'name'));
+        $this->assertEqualsCanonicalizing(['Normal User', 'Department Head', 'Encoder'], array_column($roles, 'name'));
         $this->assertSame(['id', 'name', 'status'], array_keys($roles[0]));
         $this->assertTrue($roles[0]['status']);
     }

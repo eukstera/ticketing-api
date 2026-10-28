@@ -18,6 +18,7 @@ class RoleSeeder extends Seeder
         $data = [
             ['role' => 'Normal User', 'created_at' => $now, 'updated_at' => $now],
             ['role' => 'Department Head', 'created_at' => $now, 'updated_at' => $now],
+            ['role' => 'Encoder', 'created_at' => $now, 'updated_at' => $now],
         ];
 
         Role::insert($data);
