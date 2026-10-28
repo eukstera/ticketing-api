@@ -243,6 +243,7 @@ class CompletionConfirmationTest extends ApiTestCase
     public function test_a_ticket_waiting_for_confirmation_cannot_be_reassigned(): void
     {
         [$ticket] = $this->completed();
+        $this->actingAsAdmin();
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
             ->assertStatus(409)

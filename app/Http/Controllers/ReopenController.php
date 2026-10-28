@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Puts a false-alarm ticket back to Open. The earlier timeline entries stay
- * as history and the SLA clock restarts from the new Reopened Date entry.
+ * Puts a false-alarm ticket back to Open and untaken (a former assignee is
+ * cleared). The other timeline entries stay as history and the SLA clock
+ * restarts from the new Reopened Date entry.
  */
 class ReopenController extends Controller
 {
@@ -56,7 +57,13 @@ class ReopenController extends Controller
                 'status' => 1,
             ]);
 
-            $locked->update(['status_id' => $openId]);
+            // Back to a fresh, untaken Open ticket: drop the earlier assignee and Assigned Date.
+            TicketDateActivity::query()
+                ->where('ticket_id', $locked->id)
+                ->where('date_category_id', DateCategory::where('category', 'Assigned Date')->value('id'))
+                ->delete();
+
+            $locked->update(['status_id' => $openId, 'assigned_user' => null]);
 
             return $activity;
         });

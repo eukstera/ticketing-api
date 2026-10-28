@@ -25,7 +25,7 @@ class ForbiddenMessagesTest extends ApiTestCase
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
             ->assertForbidden()
-            ->assertJsonPath('message', 'You can only assign tickets in your department, to members of that department.');
+            ->assertJsonPath('message', 'Only Department Heads can assign tickets. You can only take an untaken ticket yourself.');
     }
 
     public function test_complete_denial_uses_the_friendly_message(): void
@@ -35,7 +35,7 @@ class ForbiddenMessagesTest extends ApiTestCase
 
         $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertForbidden()
-            ->assertJsonPath('message', 'Only the assignee or members of the handling department can complete this ticket.');
+            ->assertJsonPath('message', 'Only the member who took this ticket can complete it.');
     }
 
     public function test_view_denial_uses_the_friendly_message(): void

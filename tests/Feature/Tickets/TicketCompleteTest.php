@@ -27,19 +27,38 @@ class TicketCompleteTest extends ApiTestCase
         ]);
     }
 
-    public function test_department_colleague_can_complete_and_is_recorded_as_the_assignee(): void
+    public function test_a_department_colleague_cannot_complete_someone_elses_ticket(): void
     {
         $assignee = $this->itUser();
         $this->actingAsUser($this->itUser());
         $ticket = TicketFactory::new()->assigned($assignee)->create();
 
-        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])->assertOk();
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'Only the member who took this ticket can complete it.');
 
-        $this->assertDatabaseHas('ticket_date_activities', [
-            'ticket_id' => $ticket->id,
-            'date_category_id' => 3,
-            'user_id' => $assignee->id,
-        ]);
+        $this->assertSame(2, (int) $ticket->fresh()->status_id);
+        $this->assertSame(0, TicketDateActivity::where('date_category_id', 3)->count());
+    }
+
+    public function test_a_department_head_cannot_complete_someone_elses_ticket(): void
+    {
+        $assignee = $this->itUser();
+        $this->actingAsAdmin();
+        $ticket = TicketFactory::new()->assigned($assignee)->create();
+
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
+            ->assertForbidden();
+
+        $this->assertSame(2, (int) $ticket->fresh()->status_id);
+    }
+
+    public function test_a_department_head_can_complete_a_ticket_they_took(): void
+    {
+        $head = $this->actingAsAdmin();
+        $ticket = TicketFactory::new()->assigned($head)->create();
+
+        $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])->assertOk();
     }
 
     public function test_unassigned_ticket_cannot_be_completed(): void
@@ -48,7 +67,7 @@ class TicketCompleteTest extends ApiTestCase
         $ticket = $this->openItTicket();
 
         $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
-            ->assertStatus(409)
+            ->assertForbidden()
             ->assertJsonPath('success', false);
 
         $this->assertSame(1, (int) $ticket->fresh()->status_id);

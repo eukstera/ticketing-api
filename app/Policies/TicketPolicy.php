@@ -11,10 +11,15 @@ use Illuminate\Support\Facades\Gate;
 class TicketPolicy
 {
     /**
-     * Administrators pass every ticket ability.
+     * Administrators pass every ticket ability except completing: only the
+     * member who took a ticket completes it.
      */
-    public function before(User $user): ?bool
+    public function before(User $user, string $ability): ?bool
     {
+        if ($ability === 'complete') {
+            return null;
+        }
+
         return Gate::forUser($user)->allows('admin') ? true : null;
     }
 
@@ -26,19 +31,30 @@ class TicketPolicy
         );
     }
 
+    /**
+     * Department Heads pass in before(); everyone else may only take (see take()).
+     */
     public function assign(User $user, Ticket $ticket): Response
+    {
+        return Response::deny('Only Department Heads can assign tickets. You can only take an untaken ticket yourself.');
+    }
+
+    /**
+     * A staff member taking an untaken ticket for themselves.
+     */
+    public function take(User $user, Ticket $ticket): Response
     {
         return $this->allowIf(
             $this->isInHandlingDepartment($user, $ticket),
-            'You can only assign tickets in your department, to members of that department.'
+            'You can only take tickets from your own department.'
         );
     }
 
     public function markFalseAlarm(User $user, Ticket $ticket): Response
     {
         return $this->allowIf(
-            $this->isInHandlingDepartment($user, $ticket),
-            'Only members of the handling department can mark a ticket as a false alarm.'
+            $this->isInHandlingDepartment($user, $ticket) || $this->isAssignee($user, $ticket),
+            'Only the assignee or members of the handling department can mark a ticket as a false alarm.'
         );
     }
 
@@ -77,8 +93,8 @@ class TicketPolicy
     public function complete(User $user, Ticket $ticket): Response
     {
         return $this->allowIf(
-            (int) $ticket->assigned_user === $user->id || $this->isInHandlingDepartment($user, $ticket),
-            'Only the assignee or members of the handling department can complete this ticket.'
+            $this->isAssignee($user, $ticket),
+            'Only the member who took this ticket can complete it.'
         );
     }
 
@@ -104,6 +120,11 @@ class TicketPolicy
     {
         return $ticket->department !== null
             && (int) $ticket->department === (int) $user->department_id;
+    }
+
+    private function isAssignee(User $user, Ticket $ticket): bool
+    {
+        return $ticket->assigned_user !== null && (int) $ticket->assigned_user === (int) $user->id;
     }
 
     private function isRequester(User $user, Ticket $ticket): bool

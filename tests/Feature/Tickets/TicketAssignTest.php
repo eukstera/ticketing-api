@@ -10,9 +10,9 @@ use Tests\ApiTestCase;
 
 class TicketAssignTest extends ApiTestCase
 {
-    public function test_department_member_can_assign_to_a_colleague(): void
+    public function test_department_head_can_assign_to_a_colleague(): void
     {
-        $caller = $this->actingAsUser($this->itUser());
+        $head = $this->actingAsAdmin();
         $colleague = $this->itUser();
         $ticket = $this->openItTicket();
 
@@ -29,7 +29,7 @@ class TicketAssignTest extends ApiTestCase
             'date_category_id' => 2,
             'user_id' => $colleague->id,
         ]);
-        $this->assertNotSame($caller->id, (int) $ticket->assigned_user);
+        $this->assertNotSame($head->id, (int) $ticket->assigned_user);
     }
 
     public function test_member_can_take_a_ticket_by_assigning_it_to_themselves(): void
@@ -43,9 +43,45 @@ class TicketAssignTest extends ApiTestCase
         $this->assertSame(2, (int) $ticket->fresh()->status_id);
     }
 
-    public function test_reassigning_updates_the_existing_assigned_activity(): void
+    public function test_a_member_cannot_assign_a_colleague(): void
     {
         $this->actingAsUser($this->itUser());
+        $colleague = $this->itUser();
+        $ticket = $this->openItTicket();
+
+        $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $colleague->id])
+            ->assertForbidden()
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Only Department Heads can assign tickets. You can only take an untaken ticket yourself.');
+
+        $this->assertNull($ticket->fresh()->assigned_user);
+        $this->assertSame(1, (int) $ticket->fresh()->status_id);
+    }
+
+    public function test_a_member_cannot_take_a_ticket_that_is_already_taken(): void
+    {
+        $owner = $this->itUser();
+        $caller = $this->actingAsUser($this->itUser());
+        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($owner)->create();
+
+        $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $caller->id])->assertForbidden();
+
+        $this->assertSame($owner->id, (int) $ticket->fresh()->assigned_user);
+    }
+
+    public function test_a_member_cannot_reassign_their_own_ticket_to_someone_else(): void
+    {
+        $caller = $this->actingAsUser($this->itUser());
+        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($caller)->create();
+
+        $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])->assertForbidden();
+
+        $this->assertSame($caller->id, (int) $ticket->fresh()->assigned_user);
+    }
+
+    public function test_reassigning_updates_the_existing_assigned_activity(): void
+    {
+        $this->actingAsAdmin();
         $first = $this->itUser();
         $second = $this->itUser();
         $ticket = $this->openItTicket();
@@ -59,14 +95,17 @@ class TicketAssignTest extends ApiTestCase
         $this->assertSame($second->id, (int) $ticket->fresh()->assigned_user);
     }
 
-    public function test_user_from_another_department_cannot_assign(): void
+    public function test_user_from_another_department_cannot_assign_or_take(): void
     {
-        $this->actingAsUser($this->engineeringUser());
+        $caller = $this->actingAsUser($this->engineeringUser());
         $ticket = $this->openItTicket();
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
             ->assertForbidden()
             ->assertJsonPath('success', false);
+        $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $caller->id])
+            ->assertForbidden()
+            ->assertJsonPath('message', 'You can only take tickets from your own department.');
 
         $this->assertNull($ticket->fresh()->assigned_user);
         $this->assertSame(1, (int) $ticket->fresh()->status_id);
@@ -82,7 +121,7 @@ class TicketAssignTest extends ApiTestCase
 
     public function test_assignee_must_belong_to_the_ticket_department(): void
     {
-        $this->actingAsUser($this->itUser());
+        $this->actingAsAdmin();
         $ticket = $this->openItTicket();
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->engineeringUser()->id])
@@ -93,7 +132,7 @@ class TicketAssignTest extends ApiTestCase
 
     public function test_assignee_must_exist(): void
     {
-        $this->actingAsUser($this->itUser());
+        $this->actingAsAdmin();
         $ticket = $this->openItTicket();
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => 9999])
@@ -107,7 +146,7 @@ class TicketAssignTest extends ApiTestCase
 
     public function test_completed_ticket_cannot_be_assigned(): void
     {
-        $this->actingAsUser($this->itUser());
+        $this->actingAsAdmin();
         $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->completed()->create();
         $originalAssignee = $ticket->assigned_user;
 

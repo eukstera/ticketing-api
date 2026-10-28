@@ -13,8 +13,9 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 
 /**
- * Rejects an untaken request as a false alarm: a final status with the
- * reason recorded on the ticket timeline.
+ * Rejects a request as a false alarm, before or after it was taken: a final
+ * status with the reason recorded on the ticket timeline. The assignee and
+ * Assigned Date stay as history until the ticket is reopened.
  */
 class FalseAlarmController extends Controller
 {
@@ -35,18 +36,18 @@ class FalseAlarmController extends Controller
             return $this->error('The False Alarm status is not set up. Run the ReferenceDataSeeder.', 500);
         }
 
-        $untakenStatusIds = Status::whereIn('label', ['Open', 'Overdue'])->pluck('id')->all();
+        $openStatusIds = Status::whereIn('label', ['Open', 'In-progress', 'Overdue'])->pluck('id')->all();
 
-        $result = DB::transaction(function () use ($request, $ticket, $falseAlarmStatusId, $categoryId, $untakenStatusIds) {
-            // Lock the row and re-check, so a double click or a racing Take/Assign has one winner.
+        $result = DB::transaction(function () use ($request, $ticket, $falseAlarmStatusId, $categoryId, $openStatusIds) {
+            // Lock the row and re-check, so a double click or a racing Take/Complete has one winner.
             $locked = Ticket::query()->whereKey($ticket->id)->lockForUpdate()->firstOrFail();
 
             if ((int) $locked->status_id === (int) $falseAlarmStatusId) {
                 return 'This ticket has already been marked as a false alarm.';
             }
 
-            if ($locked->assigned_user !== null || ! in_array((int) $locked->status_id, array_map('intval', $untakenStatusIds), true)) {
-                return 'Only untaken open tickets can be marked as a false alarm.';
+            if (! in_array((int) $locked->status_id, array_map('intval', $openStatusIds), true)) {
+                return 'Only open or in-progress tickets can be marked as a false alarm.';
             }
 
             $activity = TicketDateActivity::create([

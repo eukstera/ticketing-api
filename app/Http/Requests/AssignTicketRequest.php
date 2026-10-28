@@ -2,15 +2,23 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Auth\Access\Response;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class AssignTicketRequest extends FormRequest
 {
-    public function authorize(): bool
+    /**
+     * Department Heads assign anyone; other staff may only take an untaken ticket for themselves.
+     */
+    public function authorize(): Response
     {
-        return true;
+        $ticket = $this->route('ticket');
+        $isSelfTake = $ticket->assigned_user === null && (int) $this->input('user_id') === (int) $this->user()->id;
+
+        return Gate::inspect($isSelfTake ? 'take' : 'assign', $ticket);
     }
 
     /**

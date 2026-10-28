@@ -360,8 +360,7 @@ class TicketingController extends Controller
 
     public function assignTicket(AssignTicketRequest $request, Ticket $ticket)
     {
-        Gate::authorize('assign', $ticket);
-
+        // Authorization (heads assign, others only take) lives in AssignTicketRequest.
         if ($ticket->ticketStatus->label === 'Completed') {
             return $this->error('A completed ticket cannot be assigned.', 409);
         }
@@ -374,8 +373,15 @@ class TicketingController extends Controller
             return $this->error("A ticket waiting for the requester's confirmation cannot be reassigned.", 409);
         }
 
-        DB::transaction(function () use ($request, $ticket) {
+        $taken = DB::transaction(function () use ($request, $ticket) {
             $userId = $request->validated('user_id');
+
+            // Two people taking the same ticket at once: the first one wins.
+            $locked = Ticket::query()->whereKey($ticket->id)->lockForUpdate()->firstOrFail();
+
+            if ($locked->assigned_user !== null && ! Gate::allows('admin')) {
+                return false;
+            }
 
             // One Assigned activity per ticket: reassigning updates it.
             TicketDateActivity::updateOrCreate(
@@ -390,7 +396,13 @@ class TicketingController extends Controller
                 'status_id' => Status::where('label', 'In-progress')->value('id'),
                 'assigned_user' => $userId,
             ]);
+
+            return true;
         });
+
+        if (! $taken) {
+            return $this->error('This ticket has already been taken.', 409);
+        }
 
         return $this->success('Ticket assigned successfully', ['result' => ['ticket' => $ticket->fresh()]]);
     }

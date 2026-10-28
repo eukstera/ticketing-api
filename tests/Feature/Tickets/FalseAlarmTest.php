@@ -82,7 +82,7 @@ class FalseAlarmTest extends ApiTestCase
 
         $this->reject($ticket)
             ->assertForbidden()
-            ->assertJsonPath('message', 'Only members of the handling department can mark a ticket as a false alarm.');
+            ->assertJsonPath('message', 'Only the assignee or members of the handling department can mark a ticket as a false alarm.');
 
         $this->assertSame('Open', $this->statusLabel($ticket));
     }
@@ -95,25 +95,48 @@ class FalseAlarmTest extends ApiTestCase
         $this->reject($ticket)->assertOk();
     }
 
-    public function test_taken_in_progress_and_completed_tickets_are_refused(): void
+    public function test_completed_and_pending_confirmation_tickets_are_refused(): void
     {
         $this->actingAsUser($this->itUser());
         $assignee = $this->itUser();
 
         foreach ([
-            TicketFactory::new()->forDepartment($this->itDepartment())->assigned($assignee)->create(),
             TicketFactory::new()->forDepartment($this->itDepartment())->completed($assignee)->create(),
+            TicketFactory::new()->forDepartment($this->itDepartment())->assigned($assignee)->create(['status_id' => Status::where('label', 'Pending Confirmation')->value('id')]),
         ] as $ticket) {
             $before = $ticket->fresh()->status_id;
 
             $this->reject($ticket)
                 ->assertStatus(409)
-                ->assertJsonPath('message', 'Only untaken open tickets can be marked as a false alarm.');
+                ->assertJsonPath('message', 'Only open or in-progress tickets can be marked as a false alarm.');
 
             $this->assertSame($before, $ticket->fresh()->status_id);
         }
+    }
 
-        $this->assertDatabaseCount('ticket_date_activities', TicketDateActivity::query()->count());
+    public function test_a_taken_in_progress_ticket_can_be_marked_by_its_assignee_a_colleague_or_a_head(): void
+    {
+        $assignee = $this->itUser();
+
+        foreach ([$assignee, $this->itUser(), null] as $actor) {
+            $actor === null ? $this->actingAsAdmin() : $this->actingAsUser($actor);
+            $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($assignee)->create();
+
+            $this->reject($ticket)->assertOk()->assertJsonPath('result.false_alarm.reason', self::REASON);
+
+            $fresh = $ticket->fresh();
+            $this->assertSame('False Alarm', $this->statusLabel($ticket));
+            $this->assertSame($assignee->id, (int) $fresh->assigned_user);
+            $this->assertDatabaseHas('ticket_date_activities', ['ticket_id' => $ticket->id, 'date_category_id' => 2, 'user_id' => $assignee->id]);
+        }
+    }
+
+    public function test_a_taken_overdue_ticket_can_be_marked(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($this->itUser())->overdue()->create();
+
+        $this->reject($ticket)->assertOk();
     }
 
     public function test_marking_twice_is_a_conflict_and_records_one_entry(): void
@@ -129,14 +152,11 @@ class FalseAlarmTest extends ApiTestCase
         $this->assertSame(1, TicketDateActivity::query()->where('ticket_id', $ticket->id)->whereNotNull('remarks')->count());
     }
 
-    public function test_a_ticket_taken_before_the_click_is_refused(): void
+    public function test_a_ticket_completed_before_the_click_is_refused(): void
     {
         $this->actingAsUser($this->itUser());
         $ticket = $this->openTicket();
-        $ticket->update([
-            'assigned_user' => $this->itUser()->id,
-            'status_id' => Status::where('label', 'In-progress')->value('id'),
-        ]);
+        $ticket->update(['status_id' => Status::where('label', 'Completed')->value('id')]);
 
         $this->reject($ticket)->assertStatus(409);
     }
@@ -167,8 +187,12 @@ class FalseAlarmTest extends ApiTestCase
         $this->reject($ticket)->assertOk();
 
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
+            ->assertForbidden();
+        $this->actingAsAdmin();
+        $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $this->itUser()->id])
             ->assertStatus(409)
             ->assertJsonPath('message', 'A false-alarm ticket cannot be assigned.');
+        $ticket->update(['assigned_user' => $this->actingAsAdmin()->id]);
         $this->postJson("/api/tickets/{$ticket->id}/complete", ['notes' => 'Replaced the faulty power supply and tested.'])
             ->assertStatus(409)
             ->assertJsonPath('message', 'A false-alarm ticket cannot be completed.');
