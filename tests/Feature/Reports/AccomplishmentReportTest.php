@@ -2,9 +2,12 @@
 
 namespace Tests\Feature\Reports;
 
+use App\Models\TicketConfirmation;
+use App\Models\TicketDateActivity;
 use App\Models\User;
 use Database\Factories\CommentFactory;
 use Database\Factories\ReportSignatoryFactory;
+use Database\Factories\TicketConfirmationFactory;
 use Database\Factories\TicketFactory;
 use Tests\ApiTestCase;
 
@@ -101,39 +104,104 @@ class AccomplishmentReportTest extends ApiTestCase
             ->assertJsonValidationErrors(['user_id']);
     }
 
-    public function test_report_filters_by_comment_date_not_ticket_date(): void
+    private function completion(User $by, string $notes, string $at, array $ticketAttributes = [], string $state = TicketConfirmation::PENDING): TicketConfirmation
     {
-        $user = $this->actingAsUser($this->itUser());
-        $oldTicket = TicketFactory::new()->forDepartment($this->itDepartment())->requestedAt('2026-01-01 08:00:00')->create();
-        CommentFactory::new()->state(['ticket_id' => $oldTicket->id, 'user_id' => $user->id, 'comment' => 'Followed up on old ticket'])
-            ->create(['created_at' => '2026-05-03 09:00:00']);
+        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($by)->create($ticketAttributes);
 
-        $response = $this->get('/api/reports/accomplishment?'.http_build_query($this->range()));
-
-        $response->assertOk();
-        $this->assertStringContainsString(
-            'Followed up on old ticket',
-            $this->docxText($response->baseResponse->getFile()->getPathname())
-        );
+        return TicketConfirmationFactory::new()->completedAt($at)->create([
+            'ticket_id' => $ticket->id,
+            'completed_by' => $by->id,
+            'completion_notes' => $notes,
+            'state' => $state,
+        ]);
     }
 
-    public function test_report_excludes_other_users_comments(): void
+    public function test_action_taken_is_the_completion_notes_dated_by_the_completion(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $confirmation = $this->completion($user, 'Replaced the faulty power supply', '2026-05-03 09:00:00');
+        $ticket = $confirmation->ticket;
+        TicketDateActivity::query()->where('ticket_id', $ticket->id)->where('date_category_id', 1)->update(['requestor' => 'Juan Dela Cruz']);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('Replaced the faulty power supply', $text);
+        $this->assertStringContainsString('J.O.#'.$ticket->ticket_number, $text);
+        $this->assertStringContainsString('Requested by Juan Dela Cruz', $text);
+    }
+
+    public function test_completion_outside_the_range_is_excluded(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $this->completion($user, 'Completed in April', '2026-04-20 09:00:00');
+
+        $this->assertStringNotContainsString('Completed in April', $this->reportText());
+    }
+
+    public function test_comments_are_not_action_taken_once_a_ticket_has_a_completion(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $confirmation = $this->completion($user, 'Reseated the memory modules', '2026-05-03 09:00:00');
+        CommentFactory::new()->state(['ticket_id' => $confirmation->ticket_id, 'user_id' => $user->id, 'comment' => 'Just a chat comment'])
+            ->create(['created_at' => '2026-05-03 08:00:00']);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('Reseated the memory modules', $text);
+        $this->assertStringNotContainsString('Just a chat comment', $text);
+    }
+
+    public function test_only_the_latest_completion_of_a_disputed_ticket_counts(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $first = $this->completion($user, 'First attempt at the fix', '2026-05-02 09:00:00', [], TicketConfirmation::DISPUTED);
+        TicketConfirmationFactory::new()->completedAt('2026-05-05 09:00:00')->create([
+            'ticket_id' => $first->ticket_id,
+            'completed_by' => $user->id,
+            'completion_notes' => 'Second and final fix',
+        ]);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('Second and final fix', $text);
+        $this->assertStringNotContainsString('First attempt at the fix', $text);
+    }
+
+    public function test_a_completion_that_stands_disputed_is_excluded(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $this->completion($user, 'Disputed by the requester', '2026-05-03 09:00:00', [], TicketConfirmation::DISPUTED);
+
+        $this->assertStringNotContainsString('Disputed by the requester', $this->reportText());
+    }
+
+    public function test_report_excludes_other_users_completions(): void
     {
         $user = $this->actingAsUser($this->itUser());
         $other = User::factory()->inDepartment($this->itDepartment())->create();
-        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->create();
-        CommentFactory::new()->state(['ticket_id' => $ticket->id, 'user_id' => $user->id, 'comment' => 'Mine'])
-            ->create(['created_at' => '2026-05-03 09:00:00']);
-        CommentFactory::new()->state(['ticket_id' => $ticket->id, 'user_id' => $other->id, 'comment' => 'Theirs'])
-            ->create(['created_at' => '2026-05-03 09:00:00']);
+        $this->completion($user, 'Mine', '2026-05-03 09:00:00');
+        $this->completion($other, 'Theirs', '2026-05-03 09:00:00');
 
-        $text = $this->docxText(
-            $this->get('/api/reports/accomplishment?'.http_build_query($this->range()))
-                ->baseResponse->getFile()->getPathname()
-        );
+        $text = $this->reportText();
 
         $this->assertStringContainsString('Mine', $text);
         $this->assertStringNotContainsString('Theirs', $text);
+    }
+
+    public function test_tickets_completed_before_completion_notes_still_use_their_comments(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $legacy = TicketFactory::new()->forDepartment($this->itDepartment())->completed($user)->create();
+        CommentFactory::new()->state(['ticket_id' => $legacy->id, 'user_id' => $user->id, 'comment' => 'Old style action taken'])
+            ->create(['created_at' => '2026-05-03 09:00:00']);
+        $inProgress = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($user)->create();
+        CommentFactory::new()->state(['ticket_id' => $inProgress->id, 'user_id' => $user->id, 'comment' => 'Working on it'])
+            ->create(['created_at' => '2026-05-03 09:00:00']);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('Old style action taken', $text);
+        $this->assertStringNotContainsString('Working on it', $text);
     }
 
     private function reportText(array $extra = []): string

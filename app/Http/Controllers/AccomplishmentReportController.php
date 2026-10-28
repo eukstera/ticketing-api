@@ -5,8 +5,12 @@ namespace App\Http\Controllers;
 use App\Http\Requests\AccomplishmentReportRequest;
 use App\Models\Comment;
 use App\Models\ReportSignatory;
+use App\Models\Status;
+use App\Models\TicketConfirmation;
+use App\Models\TicketDateActivity;
 use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -43,23 +47,9 @@ class AccomplishmentReportController extends Controller
 
         [$approvedByName, $approvedByPosition] = $this->resolveSignatory($request);
 
-        $comments = Comment::with('ticket')
-            ->select('comments.*', 'ticket_date_activities.requestor as activity_requestor')
-            ->join('tickets', function ($q) {
-                $q->on('tickets.id', 'comments.ticket_id');
-            })
-            ->join('ticket_date_activities', function ($q) {
-                $q->on('ticket_date_activities.ticket_id', 'comments.ticket_id')
-                    ->where('ticket_date_activities.date_category_id', 1);
-            })
-            ->where('comments.user_id', $userId)
-            ->whereBetween('comments.created_at', [$dateFrom, $dateTo])
-            ->orderBy('comments.created_at')
-            ->get();
-
         // ---- 2. Group by calendar day ----
-        $grouped = $comments->groupBy(function ($c) {
-            return $c->created_at->format('Y-m-d');
+        $grouped = $this->actionsTaken($userId, $dateFrom, $dateTo)->groupBy(function ($entry) {
+            return $entry['at']->format('Y-m-d');
         });
 
         // Make sure every day in the range appears (even if empty / off-duty)
@@ -174,23 +164,12 @@ class AccomplishmentReportController extends Controller
                 $num = 1;
                 $indent = ['indentation' => ['left' => 400, 'hanging' => 400], 'spaceAfter' => 60];
 
-                foreach ($dayComments as $c) {
-                    $ticket = $c->ticket;
-
-                    if ($ticket) {
-                        $prefix = 'J.O.#'.$ticket->ticket_number.' – ';
-                        $body_txt = $c->comment;
-                        $requestedBy = $c->activity_requestor
-                            ? '. Requested by '.$c->activity_requestor.'.'
-                            : '.';
-                    } else {
-                        $prefix = '';
-                        $body_txt = $c->comment;
-                        $requestedBy = '';
-                    }
+                foreach ($dayComments as $entry) {
+                    $prefix = 'J.O.#'.$entry['ticket_number'].' – ';
+                    $requestedBy = $entry['requestor'] ? '. Requested by '.$entry['requestor'].'.' : '.';
 
                     $body->addText(
-                        $num.'. '.$prefix.$body_txt.$requestedBy,
+                        $num.'. '.$prefix.$entry['text'].$requestedBy,
                         [],
                         $indent
                     );
@@ -264,6 +243,60 @@ class AccomplishmentReportController extends Controller
         return response()->download($tempFile, $filename, [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         ])->deleteFileAfterSend(true);
+    }
+
+    /**
+     * The "action taken" lines: the completion notes the user typed when
+     * completing a ticket, dated by the completion. A ticket completed more
+     * than once (disputed, then completed again) counts only for its latest
+     * completion, and not at all while that completion stands disputed.
+     * Tickets completed before completion notes existed (Completed, no
+     * confirmation record) still use the user's comments, so old reports keep
+     * their content.
+     *
+     * @return Collection<int, array{at: Carbon, ticket_number: string, text: string, requestor: ?string}>
+     */
+    private function actionsTaken(int $userId, Carbon $dateFrom, Carbon $dateTo): Collection
+    {
+        $completions = TicketConfirmation::query()
+            ->with('ticket')
+            ->whereIn('id', fn ($query) => $query->selectRaw('MAX(id)')->from('ticket_confirmations')->groupBy('ticket_id'))
+            ->where('completed_by', $userId)
+            ->where('state', '!=', TicketConfirmation::DISPUTED)
+            ->whereBetween('completed_at', [$dateFrom, $dateTo])
+            ->get();
+
+        $completedStatusId = Status::where('label', 'Completed')->value('id');
+
+        $legacy = Comment::query()
+            ->with('ticket')
+            ->where('user_id', $userId)
+            ->whereBetween('created_at', [$dateFrom, $dateTo])
+            ->whereHas('ticket', fn ($query) => $query->where('status_id', $completedStatusId)->whereDoesntHave('confirmations'))
+            ->get();
+
+        $requestors = TicketDateActivity::query()
+            ->whereIn('ticket_id', $completions->pluck('ticket_id')->merge($legacy->pluck('ticket_id'))->unique())
+            ->where('date_category_id', 1)
+            ->pluck('requestor', 'ticket_id');
+
+        return $completions
+            ->toBase()
+            ->filter(fn ($completion) => $completion->ticket !== null)
+            ->map(fn ($completion) => [
+                'at' => $completion->completed_at,
+                'ticket_number' => $completion->ticket->ticket_number,
+                'text' => $completion->completion_notes,
+                'requestor' => $requestors[$completion->ticket_id] ?? null,
+            ])
+            ->merge($legacy->map(fn ($comment) => [
+                'at' => $comment->created_at,
+                'ticket_number' => $comment->ticket->ticket_number,
+                'text' => $comment->comment,
+                'requestor' => $requestors[$comment->ticket_id] ?? null,
+            ]))
+            ->sortBy(fn ($entry) => $entry['at']->getTimestamp())
+            ->values();
     }
 
     /**
