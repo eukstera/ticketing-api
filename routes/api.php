@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ReportSignatoryController as AdminReportSignatory
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CommentController;
+use App\Http\Controllers\ConsolidatedReportController;
 use App\Http\Controllers\FalseAlarmController;
 use App\Http\Controllers\JobOrderController;
 use App\Http\Controllers\LookupController;
@@ -142,6 +143,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Generate accomplishment report
     Route::get('/reports/accomplishment', [AccomplishmentReportController::class, 'generate']);
+
+    // consolidated report of the caller's department (Encoders and Department Heads)
+    Route::get('/reports/consolidated', [ConsolidatedReportController::class, 'index']);
+    Route::get('/reports/consolidated/options', [ConsolidatedReportController::class, 'options']);
+    Route::get('/reports/consolidated/export', [ConsolidatedReportController::class, 'export']);
 
     // active signatories for the report download dropdown
     Route::get('/report-signatories', [ReportSignatoryController::class, 'index']);

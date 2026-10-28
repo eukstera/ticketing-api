@@ -33,6 +33,10 @@ class AuthorizationServiceProvider extends ServiceProvider
             ? Response::allow()
             : Response::deny('Only IT staff and Department Heads can see new tickets.'));
 
+        Gate::define('consolidated-report', fn (User $user): Response => $user->department_id !== null && ($user->isEncoder() || Gate::forUser($user)->allows('admin'))
+            ? Response::allow()
+            : Response::deny('Only Encoders and Department Heads can view the consolidated report.'));
+
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(
             strtolower((string) $request->input('email')).'|'.$request->ip()
         ));
