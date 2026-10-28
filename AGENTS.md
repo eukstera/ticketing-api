@@ -161,3 +161,5 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - To filter on a particular test name: `php artisan test --compact --filter=testName` (recommended after making a change to a related file).
 
 </laravel-boost-guidelines>
+
+<!-- Team workflow, session roles and the "Commit and Push" procedure are in CLAUDE.md. -->
