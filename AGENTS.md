@@ -163,3 +163,4 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 </laravel-boost-guidelines>
 
 <!-- Team workflow, session roles and the "Commit and Push" procedure are in CLAUDE.md. -->
+<!-- Coordination: be-orchestrator works directly with fe-orchestrator (front-end); see CLAUDE.md. -->
