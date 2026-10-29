@@ -6,6 +6,7 @@ use App\Http\Requests\JobOrderRequest;
 use App\Models\Ticket;
 use App\Services\JobOrderFormBuilder;
 use App\Services\JobOrderPdfBuilder;
+use App\Services\PhpRequirements;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Response;
@@ -24,7 +25,7 @@ class JobOrderController extends Controller
 
     private const IT_DEPARTMENT_ID = 1;
 
-    public function __invoke(JobOrderRequest $request, Ticket $ticket, JobOrderFormBuilder $excel, JobOrderPdfBuilder $pdf): JsonResponse|BinaryFileResponse|Response
+    public function __invoke(JobOrderRequest $request, Ticket $ticket, JobOrderFormBuilder $excel, JobOrderPdfBuilder $pdf, PhpRequirements $requirements): JsonResponse|BinaryFileResponse|Response
     {
         Gate::authorize('downloadJobOrder', $ticket);
 
@@ -46,6 +47,17 @@ class JobOrderController extends Controller
 
         if ($ticket->ticketStatus->label === 'Blank' && ! $asPdf) {
             return $this->error('A blank job order is only available as a PDF.', 409);
+        }
+
+        $missing = $requirements->missing($asPdf ? PhpRequirements::PDF : PhpRequirements::WORKBOOK);
+
+        if ($missing !== []) {
+            report(new \RuntimeException('The job order '.($asPdf ? 'PDF' : 'workbook').' needs the PHP extension(s): '.implode(', ', $missing).'.'));
+
+            return $this->error(
+                ($asPdf ? 'PDF' : 'Excel').' generation is not available on this server (missing PHP extension: '.implode(', ', $missing).'). Ask the system administrator to enable it.',
+                503,
+            );
         }
 
         try {

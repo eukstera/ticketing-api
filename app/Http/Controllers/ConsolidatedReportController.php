@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ConsolidatedReportRequest;
 use App\Services\ConsolidatedReport;
 use App\Services\ConsolidatedWorkbookBuilder;
+use App\Services\PhpRequirements;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -58,8 +59,16 @@ class ConsolidatedReportController extends Controller
         ]);
     }
 
-    public function export(ConsolidatedReportRequest $request, ConsolidatedReport $report, ConsolidatedWorkbookBuilder $builder): JsonResponse|BinaryFileResponse
+    public function export(ConsolidatedReportRequest $request, ConsolidatedReport $report, ConsolidatedWorkbookBuilder $builder, PhpRequirements $requirements): JsonResponse|BinaryFileResponse
     {
+        $missing = $requirements->missing(PhpRequirements::REPORT_EXPORT);
+
+        if ($missing !== []) {
+            report(new \RuntimeException('The consolidated export needs the PHP extension(s): '.implode(', ', $missing).'.'));
+
+            return $this->error('The Excel export is not available on this server (missing PHP extension: '.implode(', ', $missing).'). Ask the system administrator to enable it.', 503);
+        }
+
         $user = $request->user()->loadMissing('department');
         $departmentId = (int) $user->department_id;
         $filters = $request->filters();
