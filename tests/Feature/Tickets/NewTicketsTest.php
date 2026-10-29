@@ -2,11 +2,14 @@
 
 namespace Tests\Feature\Tickets;
 
+use App\Models\Status;
 use App\Models\Ticket;
 use App\Models\TicketDateActivity;
 use App\Models\TicketIT;
 use App\Models\User;
 use Database\Factories\TicketFactory;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Tests\ApiTestCase;
 
 class NewTicketsTest extends ApiTestCase
@@ -19,6 +22,47 @@ class NewTicketsTest extends ApiTestCase
     private function engineeringTicket(): Ticket
     {
         return TicketFactory::new()->forDepartment($this->engineeringDepartment())->create();
+    }
+
+    public function test_the_feed_still_works_when_the_blank_and_void_statuses_are_not_seeded(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $ticket = $this->itTicket();
+        Status::query()->whereIn('label', ['Blank', 'Void'])->delete();
+
+        $response = $this->getJson('/api/tickets/new?after_id=0')->assertOk();
+
+        $this->assertSame([$ticket->id], array_column($response->json('result.tickets'), 'id'));
+    }
+
+    public function test_a_failing_query_is_logged_and_answers_nothing_new_instead_of_a_500(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $this->itTicket();
+        DB::listen(function ($query) {
+            if (str_contains($query->sql, 'tickets_it')) {
+                throw new \RuntimeException('simulated database failure');
+            }
+        });
+        Log::spy();
+
+        $this->getJson('/api/tickets/new?after_id=5')
+            ->assertOk()
+            ->assertJsonPath('result.tickets', [])
+            ->assertJsonPath('result.latest_id', 5);
+
+        Log::shouldHaveReceived('error')->atLeast()->once();
+    }
+
+    public function test_the_subject_falls_back_to_the_concern_type_when_there_is_no_request_text(): void
+    {
+        $this->actingAsUser($this->itUser());
+        $ticket = $this->itTicket();
+        TicketIT::query()->where('ticket_id', $ticket->id)->update(['remarks' => '']);
+
+        $row = $this->getJson('/api/tickets/new?after_id=0')->assertOk()->json('result.tickets.0');
+
+        $this->assertNotEmpty($row['subject']);
     }
 
     public function test_it_requires_authentication(): void

@@ -9,9 +9,9 @@ use App\Models\Ticket;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
+use Throwable;
 
 /**
  * Cheap read-only feed for the new-ticket alarm: tickets of the caller's own
@@ -34,15 +34,28 @@ class NewTicketController extends Controller
         $departmentId = (int) $request->user()->department_id;
 
         if (! $request->has('after_id') || $request->input('after_id') === null) {
-            return $this->respond([], (int) Ticket::query()->where('department', $departmentId)->max('id'), false);
+            try {
+                return $this->respond([], (int) Ticket::query()->where('department', $departmentId)->max('id'), false);
+            } catch (Throwable $e) {
+                report($e);
+
+                return $this->error('The new-ticket feed is unavailable.', 503);
+            }
         }
 
         $afterId = $request->integer('after_id');
 
-        $rows = $this->newTickets($departmentId, $afterId)->limit(self::LIMIT + 1)->get();
+        try {
+            $rows = $this->newTickets($departmentId, $afterId)->limit(self::LIMIT + 1)->get();
 
-        $hasMore = $rows->count() > self::LIMIT;
-        $tickets = $rows->take(self::LIMIT)->map(fn ($row) => $this->present($row))->values()->all();
+            $hasMore = $rows->count() > self::LIMIT;
+            $tickets = $rows->take(self::LIMIT)->map(fn ($row) => $this->present($row))->values()->all();
+        } catch (Throwable $e) {
+            // The alarm only polls: a failure is logged and the poll answers "nothing new" instead of an error page.
+            report($e);
+
+            return $this->respond([], $afterId, false);
+        }
 
         return $this->respond($tickets, $tickets === [] ? $afterId : (int) end($tickets)['id'], $hasMore);
     }
@@ -77,13 +90,14 @@ class NewTicketController extends Controller
                 ->leftJoin('type_of_concern', 'type_of_concern.id', 'tickets_it.type_of_concern')
                 ->addSelect(
                     'tickets_it.name_of_area',
-                    DB::raw('COALESCE(NULLIF(tickets_it.remarks, \'\'), type_of_concern.label) as subject'),
+                    'tickets_it.remarks as details',
+                    'type_of_concern.label as concern',
                 );
         }
 
         return $query
             ->leftJoin('tickets_engineering', 'tickets_engineering.ticket_id', 'tickets.id')
-            ->addSelect('tickets_engineering.name_of_area', 'tickets_engineering.scope_of_work as subject');
+            ->addSelect('tickets_engineering.name_of_area', 'tickets_engineering.scope_of_work as details');
     }
 
     /**
@@ -91,12 +105,15 @@ class NewTicketController extends Controller
      */
     private function present(object $row): array
     {
+        // The request text, else the concern type (picked here rather than in SQL, so no collation can break it).
+        $subject = trim((string) ($row->details ?? '')) !== '' ? (string) $row->details : trim((string) ($row->concern ?? ''));
+
         return [
             'id' => (int) $row->id,
             'ticket_number' => $row->ticket_number,
             'department_id' => (int) $row->department_id,
             'department' => $row->department,
-            'subject' => $row->subject === null ? null : Str::limit($row->subject, self::SUBJECT_LENGTH, ''),
+            'subject' => $subject === '' ? null : Str::limit($subject, self::SUBJECT_LENGTH, ''),
             'name_of_area' => $row->name_of_area,
             'priority' => $row->priority,
             'requester' => $row->requester,
