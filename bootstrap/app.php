@@ -21,6 +21,9 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Detect the real scheme behind a TLS-terminating proxy; plain http still works without one.
         $middleware->trustProxies(at: '*');
+
+        // This is an API only: a guest gets a 401 JSON answer (see the exception rendering below), never a redirect to a login page.
+        $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

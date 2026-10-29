@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Http;
 
+use Illuminate\Support\Facades\Route;
 use Tests\TestCase;
 
 class CorsTest extends TestCase
@@ -45,6 +46,27 @@ class CorsTest extends TestCase
         ]);
 
         $this->assertNull($response->headers->get('Access-Control-Allow-Origin'));
+    }
+
+    public function test_a_server_error_still_carries_the_cors_headers(): void
+    {
+        Route::get('/api/_cors_boom', fn () => throw new \RuntimeException('boom'));
+
+        $response = $this->getJson('/api/_cors_boom', ['Origin' => 'http://localhost:3000']);
+
+        $response->assertStatus(500);
+        $response->assertHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+    }
+
+    public function test_a_guest_without_an_accept_header_gets_a_401_json_answer_with_cors_headers(): void
+    {
+        $response = $this->call('GET', '/api/tickets/new', [], [], [], ['HTTP_ORIGIN' => 'http://localhost:3000']);
+
+        $response->assertStatus(401);
+        $response->assertHeader('Access-Control-Allow-Origin', 'http://localhost:3000');
+        $this->assertStringContainsString('application/json', $response->headers->get('Content-Type'));
+        $this->assertFalse($response->json('success'));
+        $this->assertNull($response->headers->get('Location'));
     }
 
     public function test_content_disposition_is_exposed_to_the_frontend(): void
