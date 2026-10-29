@@ -211,6 +211,99 @@ class ConsolidatedReportTest extends ApiTestCase
         $this->assertSame('Still broken', $result['satisfaction']['disputes'][0]['reason']);
     }
 
+    private function voidedBlank(User $owner, string $printedAt, string $voidedAt, string $reason = 'Form was spoiled'): Ticket
+    {
+        $ticket = TicketFactory::new()->forDepartment($this->itDepartment())->assigned($owner)->create(['status_id' => $this->statusId('Void')]);
+        TicketDateActivity::unguarded(function () use ($ticket, $owner, $printedAt, $voidedAt, $reason) {
+            TicketDateActivity::create(['ticket_id' => $ticket->id, 'date_category_id' => 9, 'user_id' => $owner->id, 'status' => 1, 'created_at' => $printedAt, 'updated_at' => $printedAt]);
+            TicketDateActivity::create(['ticket_id' => $ticket->id, 'date_category_id' => 11, 'user_id' => $owner->id, 'status' => 1, 'remarks' => $reason, 'created_at' => $voidedAt, 'updated_at' => $voidedAt]);
+        });
+        TicketDateActivity::query()->where('ticket_id', $ticket->id)->where('date_category_id', 1)->delete();
+
+        return $ticket;
+    }
+
+    public function test_voided_blank_job_orders_count_without_diluting_the_rates(): void
+    {
+        $this->actingAsUser($this->encoder());
+        $anna = User::factory()->inDepartment($this->itDepartment())->create(['first_name' => 'Anna', 'last_name' => 'Reyes']);
+        $done = $this->ticket('2026-05-04 09:00:00', [], $anna);
+        $this->complete($done, '2026-05-04 11:30:00');
+        $voided = $this->voidedBlank($anna, '2026-05-06 08:00:00', '2026-05-06 10:00:00', 'Spoiled form');
+
+        $result = $this->report()->assertOk()->json('result');
+
+        $this->assertSame(2, $result['summary']['total']);
+        $this->assertSame(1, $result['summary']['voided']);
+        $this->assertSame(1, $result['summary']['completed']);
+        $this->assertEquals(100.0, $result['summary']['within_sla_percent']);
+        $this->assertSame(0, $result['summary']['false_alarms']);
+        $this->assertEquals(0.0, $result['summary']['false_alarm_rate_percent']);
+
+        $statusCounts = array_column($result['breakdowns']['by_status'], 'count', 'label');
+        $this->assertSame(1, $statusCounts['Void']);
+        $this->assertSame(8, collect($result['breakdowns']['by_status'])->firstWhere('label', 'Void')['id']);
+        $this->assertSame([], array_filter(array_column($result['breakdowns']['by_requesting_area'], 'name'), fn ($n) => $n === 'Unspecified'));
+        $this->assertSame(1, $result['breakdowns']['by_staff'][0]['handled']);
+
+        $row = collect($result['tickets']['data'])->firstWhere('ticket_number', $voided->ticket_number);
+        $this->assertSame('Void', $row['status']);
+        $this->assertTrue($row['is_void']);
+        $this->assertSame('Spoiled form', $row['void_reason']);
+        $this->assertNotNull($row['voided_at']);
+        $this->assertNull($row['requester']);
+        $this->assertNull($row['priority']);
+        $this->assertNull($row['within_sla']);
+        $this->assertNull($row['resolution_minutes']);
+    }
+
+    public function test_a_voided_job_order_is_dated_by_its_print_time_or_by_its_void_time(): void
+    {
+        $this->actingAsUser($this->encoder());
+        $anna = User::factory()->inDepartment($this->itDepartment())->create();
+        $this->voidedBlank($anna, '2026-04-30 08:00:00', '2026-05-02 10:00:00');
+
+        $this->report()->assertJsonPath('result.summary.voided', 0);
+        $this->report(['date_field' => 'completed'])->assertJsonPath('result.summary.voided', 1);
+        $this->getJson('/api/reports/consolidated?from=2026-04-30&to=2026-04-30')->assertJsonPath('result.summary.voided', 1);
+    }
+
+    public function test_voided_forms_leave_the_report_when_a_priority_concern_or_area_filter_is_set(): void
+    {
+        $this->actingAsUser($this->encoder());
+        $anna = User::factory()->inDepartment($this->itDepartment())->create();
+        $ticket = $this->voidedBlank($anna, '2026-05-06 08:00:00', '2026-05-06 10:00:00');
+
+        $this->report(['priority_id' => [$ticket->priority_id]])->assertJsonPath('result.summary.voided', 0);
+        $this->report(['requesting_area' => ['Pharmacy']])->assertJsonPath('result.summary.voided', 0);
+        $this->report(['status_id' => [$this->statusId('Void')]])->assertJsonPath('result.summary.voided', 1);
+        $this->report(['staff_id' => [$anna->id]])->assertJsonPath('result.summary.voided', 1);
+    }
+
+    public function test_the_workbook_has_a_voided_tile_and_the_void_reason_column(): void
+    {
+        $this->actingAsUser($this->encoder());
+        $anna = User::factory()->inDepartment($this->itDepartment())->create();
+        $this->voidedBlank($anna, '2026-05-06 08:00:00', '2026-05-06 10:00:00', 'Spoiled form');
+
+        $response = $this->get('/api/reports/consolidated/export?'.http_build_query(self::RANGE))->assertOk();
+        $spreadsheet = IOFactory::load($response->baseResponse->getFile()->getPathname());
+
+        $tickets = $spreadsheet->getSheetByName('Tickets');
+        $this->assertSame('Void reason', $tickets->getCell('P1')->getValue());
+        $this->assertSame('Void', $tickets->getCell('G2')->getValue());
+        $this->assertSame('Spoiled form', $tickets->getCell('P2')->getValue());
+
+        $summary = $spreadsheet->getSheetByName('Summary');
+        $labels = [];
+        foreach ($summary->getRowIterator(13, 20) as $row) {
+            foreach ($row->getCellIterator() as $cell) {
+                $labels[] = $cell->getValue();
+            }
+        }
+        $this->assertContains('Voided', $labels);
+    }
+
     public function test_pagination_and_validation(): void
     {
         $this->actingAsUser($this->encoder());

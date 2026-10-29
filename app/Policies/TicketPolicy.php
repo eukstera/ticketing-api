@@ -17,7 +17,7 @@ class TicketPolicy
      *
      * @var list<string>
      */
-    private const ENCODER_BLOCKED = ['assign', 'take', 'markFalseAlarm', 'complete', 'reopen', 'closeOnBehalf', 'resendConfirmation', 'comment'];
+    private const ENCODER_BLOCKED = ['assign', 'take', 'markFalseAlarm', 'complete', 'reopen', 'closeOnBehalf', 'resendConfirmation', 'comment', 'fillBlank', 'voidBlank'];
 
     /**
      * Administrators pass every ticket ability except completing: only the
@@ -65,9 +65,29 @@ class TicketPolicy
 
     public function markFalseAlarm(User $user, Ticket $ticket): Response
     {
+        if ($ticket->ticketStatus?->label === 'Blank') {
+            return $this->allowIf($this->isAssignee($user, $ticket), 'Only the member who printed this blank job order can mark it as a false alarm.');
+        }
+
         return $this->allowIf(
             $this->isInHandlingDepartment($user, $ticket) || $this->isAssignee($user, $ticket),
             'Only the assignee or members of the handling department can mark a ticket as a false alarm.'
+        );
+    }
+
+    public function fillBlank(User $user, Ticket $ticket): Response
+    {
+        return $this->allowIf(
+            $this->isAssignee($user, $ticket),
+            'Only the member who printed this blank job order can fill it in.'
+        );
+    }
+
+    public function voidBlank(User $user, Ticket $ticket): Response
+    {
+        return $this->allowIf(
+            $this->isAssignee($user, $ticket),
+            'Only the member who printed this blank job order can void it.'
         );
     }
 

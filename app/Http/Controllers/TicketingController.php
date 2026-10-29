@@ -369,6 +369,10 @@ class TicketingController extends Controller
             return $this->error('A false-alarm ticket cannot be assigned.', 409);
         }
 
+        if (in_array($ticket->ticketStatus->label, ['Blank', 'Void'], true)) {
+            return $this->error('A blank or void job order cannot be assigned. Fill it in first.', 409);
+        }
+
         if ($ticket->ticketStatus->label === 'Pending Confirmation') {
             return $this->error("A ticket waiting for the requester's confirmation cannot be reassigned.", 409);
         }
@@ -467,6 +471,8 @@ class TicketingController extends Controller
             'overdue' => (int) ($statusCounts['Overdue'] ?? 0),
             'false_alarm' => (int) ($statusCounts['False Alarm'] ?? 0),
             'pending_confirmation' => (int) ($statusCounts['Pending Confirmation'] ?? 0),
+            'blank' => (int) ($statusCounts['Blank'] ?? 0),
+            'void' => (int) ($statusCounts['Void'] ?? 0),
         ];
 
         // The breakdown ignores the priority filter, so it always shows all
@@ -491,7 +497,7 @@ class TicketingController extends Controller
         $todayBase = Ticket::join('status', 'status.id', 'tickets.status_id')
             ->where('tickets.department', $department)
             ->whereDate('tickets.created_at', $today)
-            ->where('status.label', '!=', 'False Alarm');
+            ->whereNotIn('status.label', ['False Alarm', 'Blank', 'Void']);
 
         $todayTotal = (clone $todayBase)->count();
         $todayCompleted = (clone $todayBase)->where('status.label', 'Completed')->count();

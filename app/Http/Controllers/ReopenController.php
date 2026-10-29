@@ -23,6 +23,16 @@ class ReopenController extends Controller
 
     public const CATEGORY = 'Reopened Date';
 
+    private function wasBlank(Ticket $ticket): bool
+    {
+        $has = fn (string $category) => TicketDateActivity::query()
+            ->where('ticket_id', $ticket->id)
+            ->where('date_category_id', DateCategory::where('category', $category)->value('id'))
+            ->exists();
+
+        return $has('Blank JO Printed Date') && ! $has('Filled In Date');
+    }
+
     public function __invoke(ReopenRequest $request, Ticket $ticket): JsonResponse
     {
         Gate::authorize('reopen', $ticket);
@@ -56,6 +66,13 @@ class ReopenController extends Controller
                 'remarks' => $reason,
                 'status' => 1,
             ]);
+
+            // A blank job order that was rejected goes back to Blank, still owned by whoever printed it.
+            if ($this->wasBlank($locked)) {
+                $locked->update(['status_id' => Status::where('label', 'Blank')->value('id')]);
+
+                return $activity;
+            }
 
             // Back to a fresh, untaken Open ticket: drop the earlier assignee and Assigned Date.
             TicketDateActivity::query()

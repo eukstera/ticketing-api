@@ -57,6 +57,8 @@ class TicketDetailResource extends JsonResource
             'clock_started_at' => $clockStart?->toIso8601String(),
             'false_alarm' => $this->falseAlarm(),
             'reopened' => $this->reopened(),
+            'blank_job_order' => $this->blankJobOrder(),
+            'void' => $this->voided(),
             'confirmation' => $this->confirmation ? (new ConfirmationStaffResource($this->confirmation))->resolve() : null,
             'comments' => $this->comments
                 ->sortBy([['created_at', 'asc'], ['id', 'asc']])
@@ -92,6 +94,47 @@ class TicketDetailResource extends JsonResource
             'reason' => $activity->remarks,
             'marked_by' => $activity->user ? $this->person($activity->user) : null,
             'marked_at' => $activity->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * When and by whom a blank job order was printed, and when it was filled in;
+     * null for tickets that never started as a blank form.
+     *
+     * @return array{printed_by: ?array<string, mixed>, printed_at: ?string, filled_in_at: ?string}|null
+     */
+    private function blankJobOrder(): ?array
+    {
+        $printed = $this->latestActivity('Blank JO Printed Date');
+
+        if ($printed === null) {
+            return null;
+        }
+
+        return [
+            'printed_by' => $printed->user ? $this->person($printed->user) : null,
+            'printed_at' => $printed->created_at?->toIso8601String(),
+            'filled_in_at' => $this->latestActivity('Filled In Date')?->created_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Who voided the blank job order, why and when; null unless it is void.
+     *
+     * @return array{reason: ?string, voided_by: ?array<string, mixed>, voided_at: ?string}|null
+     */
+    private function voided(): ?array
+    {
+        $activity = $this->ticketStatus->label === 'Void' ? $this->latestActivity('Void Date') : null;
+
+        if ($activity === null) {
+            return null;
+        }
+
+        return [
+            'reason' => $activity->remarks,
+            'voided_by' => $activity->user ? $this->person($activity->user) : null,
+            'voided_at' => $activity->created_at?->toIso8601String(),
         ];
     }
 
@@ -169,7 +212,7 @@ class TicketDetailResource extends JsonResource
     {
         return match ($this->ticketStatus->label) {
             'Overdue' => true,
-            'Completed', 'False Alarm' => false,
+            'Completed', 'False Alarm', 'Blank', 'Void' => false,
             default => $dueAt !== null && now()->greaterThanOrEqualTo($dueAt),
         };
     }

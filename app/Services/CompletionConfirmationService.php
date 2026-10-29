@@ -45,6 +45,7 @@ class CompletionConfirmationService
                 'Completed' => throw new ConfirmationException('The ticket is already completed.'),
                 self::STATUS_PENDING => throw new ConfirmationException("This ticket is already waiting for the requester's confirmation."),
                 'False Alarm' => throw new ConfirmationException('A false-alarm ticket cannot be completed.'),
+                'Blank', 'Void' => throw new ConfirmationException('A blank or void job order cannot be completed. Fill it in first.'),
                 default => null,
             };
 

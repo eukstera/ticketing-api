@@ -22,6 +22,10 @@ class StatusFactory extends Factory
 
     public const PENDING_CONFIRMATION = 'Pending Confirmation';
 
+    public const BLANK = 'Blank';
+
+    public const VOID = 'Void';
+
     protected $model = Status::class;
 
     /**

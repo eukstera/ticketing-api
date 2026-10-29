@@ -36,7 +36,7 @@ class FalseAlarmController extends Controller
             return $this->error('The False Alarm status is not set up. Run the ReferenceDataSeeder.', 500);
         }
 
-        $openStatusIds = Status::whereIn('label', ['Open', 'In-progress', 'Overdue'])->pluck('id')->all();
+        $openStatusIds = Status::whereIn('label', ['Open', 'In-progress', 'Overdue', 'Blank'])->pluck('id')->all();
 
         $result = DB::transaction(function () use ($request, $ticket, $falseAlarmStatusId, $categoryId, $openStatusIds) {
             // Lock the row and re-check, so a double click or a racing Take/Complete has one winner.
@@ -47,7 +47,7 @@ class FalseAlarmController extends Controller
             }
 
             if (! in_array((int) $locked->status_id, array_map('intval', $openStatusIds), true)) {
-                return 'Only open or in-progress tickets can be marked as a false alarm.';
+                return 'Only open, in-progress or blank tickets can be marked as a false alarm.';
             }
 
             $activity = TicketDateActivity::create([

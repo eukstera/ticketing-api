@@ -34,11 +34,19 @@ class JobOrderController extends Controller
             return $this->error('A false-alarm ticket has no job order.', 409);
         }
 
+        if ($ticket->ticketStatus->label === 'Void') {
+            return $this->error('A void ticket has no job order.', 409);
+        }
+
         if ((int) $ticket->department !== self::IT_DEPARTMENT_ID) {
             return $this->error('Job order forms are only available for IT tickets.', 409);
         }
 
         $asPdf = $request->validated('format') === 'pdf';
+
+        if ($ticket->ticketStatus->label === 'Blank' && ! $asPdf) {
+            return $this->error('A blank job order is only available as a PDF.', 409);
+        }
 
         try {
             $path = $asPdf ? $pdf->build($ticket) : $excel->build($ticket);

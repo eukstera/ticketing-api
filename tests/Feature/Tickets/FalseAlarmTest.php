@@ -108,7 +108,7 @@ class FalseAlarmTest extends ApiTestCase
 
             $this->reject($ticket)
                 ->assertStatus(409)
-                ->assertJsonPath('message', 'Only open or in-progress tickets can be marked as a false alarm.');
+                ->assertJsonPath('message', 'Only open, in-progress or blank tickets can be marked as a false alarm.');
 
             $this->assertSame($before, $ticket->fresh()->status_id);
         }
@@ -319,7 +319,7 @@ class FalseAlarmTest extends ApiTestCase
         $this->assertDatabaseHas('status', ['label' => 'False Alarm']);
         $this->assertSame(1, Status::where('label', 'False Alarm')->count());
         $this->assertDatabaseHas('date_categories', ['category' => 'False Alarm Date']);
-        $this->assertDatabaseCount('date_categories', 8);
+        $this->assertDatabaseCount('date_categories', 11);
         $this->assertSame(5, (int) Status::where('label', 'False Alarm')->value('id'));
     }
 }

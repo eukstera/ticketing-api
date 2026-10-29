@@ -26,6 +26,12 @@ class DateCategoryFactory extends Factory
 
     public const AUTO_CLOSED = 'Auto-closed Date';
 
+    public const BLANK_PRINTED = 'Blank JO Printed Date';
+
+    public const FILLED_IN = 'Filled In Date';
+
+    public const VOIDED = 'Void Date';
+
     protected $model = DateCategory::class;
 
     /**

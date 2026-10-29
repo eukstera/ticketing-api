@@ -113,6 +113,18 @@ class Ticket extends Model
     }
 
     /**
+     * The voiding of a blank job order, and only while the ticket is still void.
+     */
+    public function voidActivity()
+    {
+        return $this->hasOne(TicketDateActivity::class)
+            ->whereHas('dateCategory', fn ($q) => $q->where('category', 'Void Date'))
+            ->whereHas('ticket.ticketStatus', fn ($q) => $q->where('label', 'Void'))
+            ->orderByDesc('id')
+            ->with('user');
+    }
+
+    /**
      * The latest reopen, kept as history after the ticket moves on.
      */
     public function reopenedActivity()
@@ -161,8 +173,15 @@ class Ticket extends Model
             ?->created_at;
         $reopenedAt = $this->latestActivity('Reopened Date')?->created_at;
 
+        // A blank job order has no clock until it is filled in, and a reopen
+        // from before the fill-in does not restart the paper's request time.
         if ($requestedAt === null) {
-            return $reopenedAt;
+            return null;
+        }
+
+        $filledInAt = $this->latestActivity('Filled In Date')?->created_at;
+        if ($reopenedAt !== null && $filledInAt !== null && $reopenedAt->lessThanOrEqualTo($filledInAt)) {
+            $reopenedAt = null;
         }
 
         return $reopenedAt !== null && $reopenedAt->greaterThan($requestedAt) ? $reopenedAt : $requestedAt;

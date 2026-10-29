@@ -37,6 +37,16 @@ class AuthorizationServiceProvider extends ServiceProvider
             ? Response::allow()
             : Response::deny('Only Encoders and Department Heads can view the consolidated report.'));
 
+        Gate::define('print-blank-job-order', function (User $user): Response {
+            if ($user->isEncoder()) {
+                return Response::deny('Encoders have read-only access.');
+            }
+
+            return (int) $user->department_id === 1
+                ? Response::allow()
+                : Response::deny('Blank job orders can only be printed by the IT department.');
+        });
+
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)->by(
             strtolower((string) $request->input('email')).'|'.$request->ip()
         ));

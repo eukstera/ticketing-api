@@ -10,9 +10,11 @@ use App\Http\Controllers\Admin\PriorityController;
 use App\Http\Controllers\Admin\ReportSignatoryController as AdminReportSignatoryController;
 use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BlankJobOrderController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\ConsolidatedReportController;
 use App\Http\Controllers\FalseAlarmController;
+use App\Http\Controllers\FillBlankJobOrderController;
 use App\Http\Controllers\JobOrderController;
 use App\Http\Controllers\LookupController;
 use App\Http\Controllers\NewTicketController;
@@ -25,6 +27,7 @@ use App\Http\Controllers\TicketingController;
 use App\Http\Controllers\TrackConfirmationController;
 use App\Http\Controllers\TrackTicketController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VoidBlankJobOrderController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -106,6 +109,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // reject an untaken request as a false alarm
     Route::post('/tickets/{ticket}/false-alarm', FalseAlarmController::class);
+
+    // blank job order: reserve the next ticket number, then fill it in or void it
+    Route::post('/tickets/blank-job-order', BlankJobOrderController::class);
+    Route::patch('/tickets/{ticket}/fill-blank', FillBlankJobOrderController::class);
+    Route::post('/tickets/{ticket}/void', VoidBlankJobOrderController::class);
 
     // filled IT job order request + satisfaction survey workbook (.xlsx)
     Route::get('/tickets/{ticket}/job-order', JobOrderController::class);

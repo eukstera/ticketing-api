@@ -29,11 +29,12 @@ class TicketListQuery
 
         $rows = $this->base($departmentId, $userId, $requestedId);
         $this->applyFilters($rows, $request, $departmentId, true);
+        $this->hideVoidByDefault($rows, $request);
         $this->applySelect($rows, $departmentId);
         $this->applySort($rows, $request);
 
         $tickets = $rows
-            ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'falseAlarmActivity', 'reopenedActivity', 'devices'])
+            ->with(['dateActivities.dateCategory', 'dateActivities.user', 'requestedActivity', 'assignedActivity', 'completedActivity', 'falseAlarmActivity', 'reopenedActivity', 'voidActivity', 'devices'])
             ->withCount('comments')
             ->paginate($request->integer('per_page', 10))
             ->withQueryString();
@@ -59,7 +60,7 @@ class TicketListQuery
             ->when(
                 $departmentId === self::IT_DEPARTMENT_ID,
                 fn (Builder $q) => $q->join('tickets_it', 'tickets_it.ticket_id', 'tickets.id')
-                    ->join('type_of_concern', 'type_of_concern.id', 'tickets_it.type_of_concern'),
+                    ->leftJoin('type_of_concern', 'type_of_concern.id', 'tickets_it.type_of_concern'),
                 fn (Builder $q) => $q->join('tickets_engineering', 'tickets_engineering.ticket_id', 'tickets.id')
                     ->join('nature_of_work', 'nature_of_work.id', 'tickets_engineering.nature_of_work'),
             )
@@ -109,14 +110,25 @@ class TicketListQuery
     {
         $direction = $request->input('dir') === 'asc' ? 'asc' : 'desc';
 
+        // A blank job order has no request date yet, so it sorts by when it was printed.
         $column = match ($request->input('sort')) {
             'ticket_number' => 'tickets.ticket_number',
             'priority' => 'priority.sla_days',
             'status' => 'status.id',
-            default => 'req.created_at',
+            default => DB::raw('COALESCE(req.created_at, tickets.created_at)'),
         };
 
         $query->orderBy($column, $direction)->orderBy('tickets.id', $direction);
+    }
+
+    /**
+     * Voided blank job orders only show when a status filter asks for them.
+     */
+    private function hideVoidByDefault(Builder $query, TicketListRequest $request): void
+    {
+        if (! $request->filled('status_id') && ! $request->filled('status')) {
+            $query->where('status.label', '!=', 'Void');
+        }
     }
 
     /**
@@ -188,7 +200,10 @@ class TicketListQuery
             ->map(fn (Status $status) => ['id' => $status->id, 'label' => $status->label, 'count' => (int) ($counts[$status->id] ?? 0)])
             ->all();
 
-        return [['id' => null, 'label' => 'All', 'count' => (int) $counts->sum()], ...$rows];
+        $voidId = Status::where('label', 'Void')->value('id');
+        $all = (int) $counts->sum() - (int) ($counts[$voidId] ?? 0);
+
+        return [['id' => null, 'label' => 'All', 'count' => $all], ...$rows];
     }
 
     /**

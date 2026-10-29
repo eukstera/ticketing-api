@@ -59,7 +59,7 @@ class NewTicketController extends Controller
             })
             ->where('tickets.department', $departmentId)
             ->where('tickets.id', '>', $afterId)
-            ->where('tickets.status_id', '!=', Status::where('label', 'False Alarm')->value('id') ?? 0)
+            ->whereNotIn('tickets.status_id', Status::whereIn('label', ['False Alarm', 'Blank', 'Void'])->pluck('id')->all())
             ->orderBy('tickets.id')
             ->select(
                 'tickets.id',

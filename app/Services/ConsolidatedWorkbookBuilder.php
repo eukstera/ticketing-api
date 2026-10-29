@@ -38,6 +38,7 @@ class ConsolidatedWorkbookBuilder
         'Overdue' => 'EF4444',
         'False Alarm' => '8B5CF6',
         'Pending Confirmation' => '14B8A6',
+        'Void' => '374151',
     ];
 
     private const PALETTE = ['3B82F6', '14B8A6', 'F59E0B', 'D946EF', '6366F1', 'EF4444', '22C55E', '9CA3AF'];
@@ -128,6 +129,7 @@ class ConsolidatedWorkbookBuilder
             ['False alarm rate', $this->fraction($kpis['false_alarm_rate_percent']), '0.0%'],
             ['Avg. satisfaction', $kpis['avg_satisfaction'], '0.0" / 5"'],
             ['Disputes', $kpis['disputes'], '#,##0'],
+            ['Voided', $kpis['voided'], '#,##0'],
         ];
 
         $tileTop = 13;
@@ -303,15 +305,15 @@ class ConsolidatedWorkbookBuilder
      */
     private function ticketsSheet(Worksheet $sheet, Collection $rows): void
     {
-        $headers = ['Ticket no.', 'Requested', 'Requesting department', 'Requester', 'Concern type', 'Priority', 'Status', 'Handled by', 'Completed', 'Resolution time (hours)', 'Resolution time', 'Within SLA', 'Satisfaction (1-5)', 'Disputed', 'Action taken'];
-        $widths = [16, 17, 26, 22, 24, 26, 20, 22, 17, 14, 14, 11, 13, 10, 50];
+        $headers = ['Ticket no.', 'Requested', 'Requesting department', 'Requester', 'Concern type', 'Priority', 'Status', 'Handled by', 'Completed', 'Resolution time (hours)', 'Resolution time', 'Within SLA', 'Satisfaction (1-5)', 'Disputed', 'Action taken', 'Void reason'];
+        $widths = [16, 17, 26, 22, 24, 26, 20, 22, 17, 14, 14, 11, 13, 10, 50, 40];
 
         foreach ($headers as $index => $header) {
             $column = $this->column($index + 1);
             $sheet->setCellValue("{$column}1", $header);
             $sheet->getColumnDimension($column)->setWidth($widths[$index]);
         }
-        $this->headerStyle($sheet, 'A1:O1');
+        $this->headerStyle($sheet, 'A1:P1');
         $sheet->getRowDimension(1)->setRowHeight(32);
 
         $line = 2;
@@ -340,6 +342,7 @@ class ConsolidatedWorkbookBuilder
                 $sheet->setCellValue("N{$line}", 'Yes');
             }
             $sheet->setCellValue("O{$line}", $row['action_taken']);
+            $sheet->setCellValue("P{$line}", $row['void_reason']);
             $line++;
         }
 
@@ -348,8 +351,8 @@ class ConsolidatedWorkbookBuilder
         $sheet->getStyle("I2:I{$last}")->getNumberFormat()->setFormatCode('yyyy-mm-dd hh:mm');
         $sheet->getStyle("J2:J{$last}")->getNumberFormat()->setFormatCode('0.00');
         $sheet->getStyle("M2:M{$last}")->getNumberFormat()->setFormatCode('0.00');
-        $sheet->getStyle("O2:O{$last}")->getAlignment()->setWrapText(true);
-        $sheet->getStyle("A2:O{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
+        $sheet->getStyle("O2:P{$last}")->getAlignment()->setWrapText(true);
+        $sheet->getStyle("A2:P{$last}")->getAlignment()->setVertical(Alignment::VERTICAL_TOP);
 
         if ($last >= 2) {
             $overdue = new Conditional;
@@ -360,11 +363,16 @@ class ConsolidatedWorkbookBuilder
             $outside->setConditionType(Conditional::CONDITION_EXPRESSION)->addCondition('$L2="No"');
             $outside->getStyle()->getFill()->setFillType(Fill::FILL_SOLID)->getEndColor()->setRGB('FEF3C7');
 
-            $sheet->getStyle("A2:O{$last}")->setConditionalStyles([$overdue, $outside]);
+            $void = new Conditional;
+            $void->setConditionType(Conditional::CONDITION_EXPRESSION)->addCondition('$G2="Void"');
+            $void->getStyle()->getFont()->getColor()->setRGB('6B7280');
+            $void->getStyle()->getFill()->setFillType(Fill::FILL_SOLID)->getEndColor()->setRGB('E5E7EB');
+
+            $sheet->getStyle("A2:P{$last}")->setConditionalStyles([$overdue, $outside, $void]);
         }
 
         $sheet->freezePane('B2');
-        $sheet->setAutoFilter("A1:O{$last}");
+        $sheet->setAutoFilter("A1:P{$last}");
         $sheet->getPageSetup()->setOrientation(PageSetup::ORIENTATION_LANDSCAPE)->setFitToWidth(1)->setFitToHeight(0);
     }
 

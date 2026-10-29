@@ -30,6 +30,9 @@ class ConsolidatedReport
 
     public const MAX_ROWS = 20000;
 
+    /** Unfilled blank job orders are not requests yet, so they stay out of the report. */
+    private const UNREPORTED_STATUSES = ['Blank'];
+
     /**
      * @param  array{from: Carbon, to: Carbon, date_field: string, requesting_area?: list<string>, status_id?: list<int>, priority_id?: list<int>, concern_type_id?: list<int>, staff_id?: list<int>}  $filters
      * @return Collection<int, array<string, mixed>> newest request first
@@ -39,7 +42,10 @@ class ConsolidatedReport
         $isIt = $departmentId === self::IT_DEPARTMENT_ID;
         $detailsRelation = $isIt ? 'itDetails' : 'engineeringDetails';
         $concernColumn = $isIt ? 'type_of_concern' : 'nature_of_work';
-        $dateCategory = DateCategory::where('category', $filters['date_field'] === 'completed' ? 'Completed Date' : 'Requested Date')->value('id');
+        // A voided blank job order has no request or completion: it is dated by its print or void time instead.
+        $basisCategories = DateCategory::whereIn('category', $filters['date_field'] === 'completed' ? ['Completed Date', 'Void Date'] : ['Requested Date', 'Blank JO Printed Date'])->pluck('id')->all();
+        $voidIds = Status::where('label', 'Void')->pluck('id')->all();
+        $hasDetailFilters = ($filters['priority_id'] ?? []) !== [] || ($filters['concern_type_id'] ?? []) !== [] || ($filters['requesting_area'] ?? []) !== [];
 
         $concernLabels = $isIt
             ? TypeOfConcern::query()->pluck('label', 'id')
@@ -48,8 +54,11 @@ class ConsolidatedReport
         $tickets = Ticket::query()
             ->where('tickets.department', $departmentId)
             ->whereHas('dateActivities', fn (Builder $q) => $q
-                ->where('date_category_id', $dateCategory)
+                ->whereIn('date_category_id', $basisCategories)
                 ->whereBetween('created_at', [$filters['from']->copy()->startOfDay(), $filters['to']->copy()->endOfDay()]))
+            ->whereNotIn('status_id', Status::whereIn('label', self::UNREPORTED_STATUSES)->pluck('id')->all())
+            // Voided forms have no priority, concern or area, so those filters leave them out.
+            ->when($hasDetailFilters, fn (Builder $q) => $q->whereNotIn('status_id', $voidIds))
             ->when($filters['status_id'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('status_id', $ids))
             ->when($filters['priority_id'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('priority_id', $ids))
             ->when($filters['staff_id'] ?? [], fn (Builder $q, array $ids) => $q->whereIn('assigned_user', $ids))
@@ -76,11 +85,18 @@ class ConsolidatedReport
         $activities = $ticket->dateActivities->groupBy(fn ($activity) => $activity->dateCategory?->category);
         $latest = fn (string $category) => $activities->get($category)?->sortByDesc('id')->first()?->created_at;
 
-        $requestedAt = $latest('Requested Date');
+        $status = $ticket->ticketStatus->label;
+        $isVoid = $status === 'Void';
+        $voidActivity = $isVoid ? $activities->get('Void Date')?->sortByDesc('id')->first() : null;
+
+        $requestedAt = $isVoid ? $latest('Blank JO Printed Date') : $latest('Requested Date');
         $reopenedAt = $latest('Reopened Date');
+        $filledInAt = $latest('Filled In Date');
+        if ($reopenedAt !== null && $filledInAt !== null && $reopenedAt->lte($filledInAt)) {
+            $reopenedAt = null;
+        }
         $clockStart = $reopenedAt !== null && $requestedAt !== null && $reopenedAt->gt($requestedAt) ? $reopenedAt : $requestedAt;
 
-        $status = $ticket->ticketStatus->label;
         $isDone = in_array($status, ['Completed', 'Pending Confirmation'], true);
         $completedAt = $isDone ? $latest('Completed Date') : null;
 
@@ -107,7 +123,7 @@ class ConsolidatedReport
             'id' => $ticket->id,
             'ticket_number' => $ticket->ticket_number,
             'requested_at' => $requestedAt,
-            'requester' => $activities->get('Requested Date')?->sortBy('id')->first()?->requestor,
+            'requester' => $isVoid ? null : $activities->get('Requested Date')?->sortBy('id')->first()?->requestor,
             'requesting_area' => $details?->name_of_area,
             'concern_type_id' => $concernId !== null ? (int) $concernId : null,
             'concern_type' => $concern,
@@ -123,6 +139,9 @@ class ConsolidatedReport
             'within_sla' => $withinSla,
             'is_overdue' => $status === 'Overdue',
             'is_false_alarm' => $status === 'False Alarm',
+            'is_void' => $isVoid,
+            'void_reason' => $voidActivity?->remarks,
+            'voided_at' => $voidActivity?->created_at,
             'survey_score' => $score,
             'survey' => $survey !== null ? collect(TicketSurvey::BLOCKS)->mapWithKeys(fn (string $block) => [$block => (int) $survey->{$block}])->all() : null,
             'disputes' => $confirmations
@@ -143,7 +162,7 @@ class ConsolidatedReport
      */
     private function inRange(array $row, array $filters): bool
     {
-        $moment = $filters['date_field'] === 'completed' ? $row['completed_at'] : $row['requested_at'];
+        $moment = $filters['date_field'] === 'completed' ? ($row['completed_at'] ?? $row['voided_at']) : $row['requested_at'];
 
         return $moment !== null
             && $moment->betweenIncluded($filters['from']->copy()->startOfDay(), $filters['to']->copy()->endOfDay());
@@ -154,8 +173,11 @@ class ConsolidatedReport
      * @param  array<string, mixed>  $filters
      * @return array{summary: array<string, mixed>, breakdowns: array<string, mixed>, satisfaction: array<string, mixed>}
      */
-    public function aggregate(Collection $rows, int $departmentId, array $filters): array
+    public function aggregate(Collection $allRows, int $departmentId, array $filters): array
     {
+        // Voided forms count in the total and the status mix only, so the rates are not diluted.
+        $voids = $allRows->where('is_void', true);
+        $rows = $allRows->where('is_void', false)->values();
         $total = $rows->count();
         $completed = $rows->whereNotNull('completed_at');
         $slaRated = $rows->whereNotNull('within_sla');
@@ -167,7 +189,8 @@ class ConsolidatedReport
         $average = fn (Collection $values, int $precision = 2): ?float => $values->isEmpty() ? null : round((float) $values->avg(), $precision);
 
         $summary = [
-            'total' => $total,
+            'total' => $allRows->count(),
+            'voided' => $voids->count(),
             'completed' => $completed->count(),
             'within_sla_percent' => $percent($slaRated->where('within_sla', true)->count(), $slaRated->count()),
             'avg_resolution_minutes' => $average($completed->pluck('resolution_minutes')->filter(fn ($m) => $m !== null), 0),
@@ -181,7 +204,7 @@ class ConsolidatedReport
         return [
             'summary' => $summary,
             'breakdowns' => [
-                'by_status' => $this->byStatus($rows),
+                'by_status' => $this->byStatus($allRows),
                 'by_priority' => $this->byPriority($rows, $departmentId),
                 'by_requesting_area' => $this->countBy($rows, 'requesting_area'),
                 'by_concern_type' => $this->countBy($rows, 'concern_type'),
@@ -201,7 +224,7 @@ class ConsolidatedReport
     {
         $counts = $rows->countBy('status_id');
 
-        return Status::query()->orderBy('id')->get()
+        return Status::query()->whereNotIn('label', self::UNREPORTED_STATUSES)->orderBy('id')->get()
             ->map(fn (Status $status) => ['id' => $status->id, 'label' => $status->label, 'count' => (int) ($counts[$status->id] ?? 0)])
             ->all();
     }
@@ -367,7 +390,7 @@ class ConsolidatedReport
         $detailsModel = $isIt ? TicketIT::class : TicketEngineering::class;
 
         return [
-            'statuses' => Status::query()->orderBy('id')->get()->map(fn (Status $s) => ['id' => $s->id, 'name' => $s->label])->all(),
+            'statuses' => Status::query()->whereNotIn('label', self::UNREPORTED_STATUSES)->orderBy('id')->get()->map(fn (Status $s) => ['id' => $s->id, 'name' => $s->label])->all(),
             'priorities' => Priority::query()->where('department_id', $departmentId)->orderBy('sla_days')->get()
                 ->map(fn (Priority $p) => ['id' => $p->id, 'name' => $p->level, 'sla_days' => (int) $p->sla_days])->all(),
             'concern_types' => ($isIt ? TypeOfConcern::query() : NatureOfWork::query())->orderBy('label')->get()
@@ -399,13 +422,16 @@ class ConsolidatedReport
             'requester' => $row['requester'],
             'requesting_area' => $row['requesting_area'],
             'concern_type' => $row['concern_type'],
-            'priority' => $row['priority'],
+            'priority' => $row['is_void'] ? null : $row['priority'],
             'status' => $row['status'],
             'handled_by' => $row['handled_by'],
             'completed_at' => $row['completed_at']?->toIso8601String(),
             'resolution_minutes' => $row['resolution_minutes'],
             'within_sla' => $row['within_sla'],
             'is_overdue' => $row['is_overdue'],
+            'is_void' => $row['is_void'],
+            'void_reason' => $row['void_reason'],
+            'voided_at' => $row['voided_at']?->toIso8601String(),
             'survey_score' => $row['survey_score'],
             'disputed' => $row['disputes'] !== [],
             'action_taken' => $row['action_taken'],

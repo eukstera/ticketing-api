@@ -61,6 +61,10 @@ final class JobOrderData
             'dateActivities.user.designation',
         ]);
 
+        if ($ticket->ticketStatus->label === 'Blank') {
+            return self::blank($ticket);
+        }
+
         $details = $ticket->itDetails;
         $requested = $ticket->dateActivities->first(fn (TicketDateActivity $activity) => $activity->dateCategory?->category === 'Requested Date');
         $requesterName = $requested?->user ? trim("{$requested->user->first_name} {$requested->user->last_name}") : $requested?->requestor;
@@ -88,6 +92,29 @@ final class JobOrderData
             start: ($assigned?->updated_at ?? $assigned?->created_at)?->format('M j, Y g:i A'),
             performerName: self::limit($taker === null ? null : trim("{$taker->first_name} {$taker->last_name}"), 30),
             performerDesignation: self::limit($taker?->designation?->designation, 30),
+        );
+    }
+
+    /**
+     * A blank form for handwriting: only the reserved ticket number is filled.
+     */
+    public static function blank(Ticket $ticket): self
+    {
+        return new self(
+            number: self::displayNumber($ticket),
+            division: null,
+            equipment: null,
+            detailLines: [],
+            priority: null,
+            expectedDate: null,
+            requesterName: null,
+            requesterDesignation: null,
+            requestedDate: null,
+            category: null,
+            othersLabel: null,
+            start: null,
+            performerName: null,
+            performerDesignation: null,
         );
     }
 
