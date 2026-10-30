@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\ReportSignatory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 /**
@@ -21,17 +22,17 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 1, 'role' => 'Normal User'],
             ['id' => 2, 'role' => 'Department Head'],
             ['id' => 3, 'role' => 'Encoder'],
-        ]);
+        ], ['role']);
 
         $this->seedTable('departments', [
             ['id' => 1, 'department' => 'IT'],
             ['id' => 2, 'department' => 'Engineering'],
-        ]);
+        ], ['department']);
 
         $this->seedTable('designations', [
             ['id' => 1, 'department_id' => 1, 'designation' => 'Tech Support'],
             ['id' => 2, 'department_id' => 2, 'designation' => 'Electrician'],
-        ]);
+        ], ['department_id', 'designation']);
 
         $this->seedTable('status', [
             ['id' => 1, 'label' => 'Open'],
@@ -42,17 +43,17 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 6, 'label' => 'Pending Confirmation'],
             ['id' => 7, 'label' => 'Blank'],
             ['id' => 8, 'label' => 'Void'],
-        ]);
+        ], ['label']);
 
         $this->seedTable('priority', [
-            ['id' => 1, 'department_id' => 1, 'level' => 'Urgent & IHOMIS Related', 'sla_days' => 1, 'SLA' => '1'],
-            ['id' => 2, 'department_id' => 1, 'level' => 'Urgent', 'sla_days' => 2, 'SLA' => '2'],
+            ['id' => 1, 'department_id' => 1, 'level' => 'Urgent & IHOMIS Related', 'sla_days' => 3, 'SLA' => '3'],
+            ['id' => 2, 'department_id' => 1, 'level' => 'Urgent', 'sla_days' => 3, 'SLA' => '3'],
             ['id' => 3, 'department_id' => 1, 'level' => 'Important but not urgent', 'sla_days' => 3, 'SLA' => '3'],
-            ['id' => 4, 'department_id' => 1, 'level' => 'Long Term', 'sla_days' => 10, 'SLA' => '10'],
+            ['id' => 4, 'department_id' => 1, 'level' => 'Long Term', 'sla_days' => 20, 'SLA' => '20'],
             ['id' => 5, 'department_id' => 2, 'level' => 'Urgent', 'sla_days' => 1, 'SLA' => '1'],
             ['id' => 6, 'department_id' => 2, 'level' => 'Complex', 'sla_days' => 2, 'SLA' => '2'],
             ['id' => 7, 'department_id' => 2, 'level' => 'Simple', 'sla_days' => 3, 'SLA' => '3'],
-        ]);
+        ], ['department_id', 'level']);
 
         $this->seedTable('date_categories', [
             ['id' => 1, 'category' => 'Requested Date'],
@@ -66,18 +67,18 @@ class ReferenceDataSeeder extends Seeder
             ['id' => 9, 'category' => 'Blank JO Printed Date'],
             ['id' => 10, 'category' => 'Filled In Date'],
             ['id' => 11, 'category' => 'Void Date'],
-        ]);
+        ], ['category']);
 
         $this->seedTable('type_of_concern', [
             ['id' => 1, 'label' => 'Hardware'],
             ['id' => 2, 'label' => 'Software'],
             ['id' => 3, 'label' => 'Printer'],
-        ]);
+        ], ['label']);
 
         $this->seedTable('nature_of_work', [
             ['id' => 1, 'label' => 'Electrical'],
             ['id' => 2, 'label' => 'Others'],
-        ]);
+        ], ['label']);
 
         $this->seedDefaultReportSignatory();
     }
@@ -100,21 +101,22 @@ class ReferenceDataSeeder extends Seeder
     }
 
     /**
-     * Insert or update each row by id, keeping created_at on existing rows.
+     * Adds the rows that are missing and never touches an existing one, so anything an
+     * admin edited stays as it is. A row counts as present when its id or its natural key exists.
      *
      * @param  array<int, array<string, mixed>>  $rows
+     * @param  list<string>  $naturalKey  the columns that identify a row besides its id
      */
-    private function seedTable(string $table, array $rows): void
+    private function seedTable(string $table, array $rows, array $naturalKey): void
     {
         $now = now();
 
         foreach ($rows as $row) {
-            $values = $row + ['status' => true, 'updated_at' => $now];
+            $exists = DB::table($table)->where('id', $row['id'])->exists()
+                || DB::table($table)->where(Arr::only($row, $naturalKey))->exists();
 
-            if (DB::table($table)->where('id', $row['id'])->exists()) {
-                DB::table($table)->where('id', $row['id'])->update($values);
-            } else {
-                DB::table($table)->insert($values + ['created_at' => $now]);
+            if (! $exists) {
+                DB::table($table)->insert($row + ['status' => true, 'created_at' => $now, 'updated_at' => $now]);
             }
         }
     }

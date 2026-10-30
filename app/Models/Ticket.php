@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\WorkingCalendar;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -188,18 +189,39 @@ class Ticket extends Model
     }
 
     /**
-     * Whole calendar days, matching tickets:promote-overdue: a ticket is due
-     * at the start of the day sla_days after its clock started.
+     * Working days (Monday to Friday), matching tickets:promote-overdue: a ticket
+     * is due at the start of the day sla_days working days after its clock started.
      */
     public function dueAt(): ?Carbon
     {
-        $days = (int) $this->priority->sla_days;
+        return $this->dueAtWithin((int) $this->priority->sla_days);
+    }
+
+    /**
+     * The due moment for a given number of SLA days, for callers that already have the priority's days.
+     */
+    public function dueAtWithin(int $slaDays): ?Carbon
+    {
         $start = $this->clockStartedAt();
 
-        if ($start === null || $days <= 0) {
+        if ($start === null || $slaDays <= 0) {
             return null;
         }
 
-        return $start->copy()->addDays($days)->startOfDay();
+        return app(WorkingCalendar::class)->dueAt($start, $slaDays);
+    }
+
+    /**
+     * Whether a ticket in this status counts as overdue now: the Overdue status itself,
+     * or an unfinished ticket whose due moment has passed. Finished, rejected,
+     * blank and void tickets never are.
+     */
+    public static function isPastDue(string $statusLabel, ?Carbon $dueAt): bool
+    {
+        return match ($statusLabel) {
+            'Overdue' => true,
+            'Completed', 'Pending Confirmation', 'False Alarm', 'Blank', 'Void' => false,
+            default => $dueAt !== null && now()->greaterThanOrEqualTo($dueAt),
+        };
     }
 }

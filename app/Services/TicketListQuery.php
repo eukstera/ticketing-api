@@ -39,6 +39,15 @@ class TicketListQuery
             ->paginate($request->integer('per_page', 10))
             ->withQueryString();
 
+        // The clock and due moment come from the server, so the screens never count days themselves.
+        $tickets->getCollection()->each(function (Ticket $ticket) {
+            $dueAt = $ticket->dueAtWithin((int) $ticket->priority_sla);
+
+            $ticket->setAttribute('clock_started_at', $ticket->clockStartedAt()?->toIso8601String());
+            $ticket->setAttribute('due_at', $dueAt?->toIso8601String());
+            $ticket->setAttribute('is_overdue', Ticket::isPastDue((string) $ticket->status, $dueAt));
+        });
+
         return [
             'ticket' => $tickets,
             'priority_sla' => Priority::where('department_id', $departmentId)->pluck('sla_days', 'level')->map(fn ($days) => (int) $days)->all(),

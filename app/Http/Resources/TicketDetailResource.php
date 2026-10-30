@@ -210,10 +210,6 @@ class TicketDetailResource extends JsonResource
 
     private function isOverdue(?Carbon $dueAt): bool
     {
-        return match ($this->ticketStatus->label) {
-            'Overdue' => true,
-            'Completed', 'False Alarm', 'Blank', 'Void' => false,
-            default => $dueAt !== null && now()->greaterThanOrEqualTo($dueAt),
-        };
+        return Ticket::isPastDue($this->ticketStatus->label, $dueAt);
     }
 }

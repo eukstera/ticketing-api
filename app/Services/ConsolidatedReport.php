@@ -103,7 +103,7 @@ class ConsolidatedReport
         $slaDays = (int) ($ticket->priority->sla_days ?? 0);
         $minutes = $completedAt !== null && $clockStart !== null ? (int) abs($clockStart->diffInMinutes($completedAt)) : null;
         $withinSla = $completedAt !== null && $clockStart !== null && $slaDays > 0
-            ? $completedAt->lt($clockStart->copy()->addDays($slaDays)->startOfDay())
+            ? $completedAt->lt(app(WorkingCalendar::class)->dueAt($clockStart, $slaDays))
             : null;
 
         $confirmations = $ticket->confirmations->sortBy('id');

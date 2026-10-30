@@ -182,7 +182,8 @@ class TicketDetailTest extends ApiTestCase
         $freshTicket = $this->getJson("/api/tickets/{$fresh->id}")->assertOk()->json('result.ticket');
 
         $this->assertTrue($lateTicket['is_overdue']);
-        $this->assertSame('2026-05-19', Carbon::parse($lateTicket['due_at'])->format('Y-m-d'));
+        // Requested on Sunday 17 May: counting starts on Monday 18 May, 2 working days later is Wednesday 20 May.
+        $this->assertSame('2026-05-20', Carbon::parse($lateTicket['due_at'])->format('Y-m-d'));
         $this->assertFalse($freshTicket['is_overdue']);
         $this->assertSame('2026-05-21', Carbon::parse($freshTicket['due_at'])->format('Y-m-d'));
         $this->assertSame(2, $freshTicket['priority']['sla_days']);

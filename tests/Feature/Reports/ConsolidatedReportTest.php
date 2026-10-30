@@ -9,6 +9,7 @@ use App\Models\TicketDateActivity;
 use App\Models\TicketIT;
 use App\Models\TicketSurvey;
 use App\Models\User;
+use Database\Factories\PriorityFactory;
 use Database\Factories\TicketConfirmationFactory;
 use Database\Factories\TicketFactory;
 use Illuminate\Testing\TestResponse;
@@ -157,6 +158,24 @@ class ConsolidatedReportTest extends ApiTestCase
         $this->assertSame(4, $result['tickets']['total']);
         $this->assertSame(1, $result['satisfaction']['responses']);
         $this->assertEquals(50.0, $result['satisfaction']['response_rate_percent']);
+    }
+
+    public function test_within_sla_counts_working_days_so_a_weekend_does_not_make_a_ticket_late(): void
+    {
+        $this->actingAsUser($this->encoder());
+        $anna = User::factory()->inDepartment($this->itDepartment())->create();
+        $oneDay = PriorityFactory::new()->slaDays(1)->create(['department_id' => $this->itDepartment()->id]);
+        // Requested Friday 15 May, completed Saturday 16 May: due at the start of Monday 18 May.
+        $ticket = $this->ticket('2026-05-15 16:00:00', ['priority_id' => $oneDay->id], $anna);
+        $this->complete($ticket, '2026-05-16 10:00:00');
+        // Requested Monday 4 May, completed Wednesday 6 May with a 1 day SLA: late.
+        $late = $this->ticket('2026-05-04 09:00:00', ['priority_id' => $oneDay->id], $anna);
+        $this->complete($late, '2026-05-06 10:00:00');
+
+        $rows = collect($this->report()->assertOk()->json('result.tickets.data'));
+
+        $this->assertTrue($rows->firstWhere('ticket_number', $ticket->ticket_number)['within_sla']);
+        $this->assertFalse($rows->firstWhere('ticket_number', $late->ticket_number)['within_sla']);
     }
 
     public function test_filters_narrow_the_report(): void

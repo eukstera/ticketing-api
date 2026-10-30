@@ -80,6 +80,27 @@ class TicketListTest extends ApiTestCase
         }
     }
 
+    public function test_rows_carry_the_clock_the_due_moment_and_overdue_flag_in_working_days(): void
+    {
+        $this->travelTo('2026-05-20 12:00:00');
+        $this->actingAsUser($this->itUser());
+        $priority = Priority::factory()->slaDays(2)->create(['department_id' => $this->itDepartment()->id]);
+        // Friday 15 May: 2 working days later is Tuesday 19 May, so it is already due on Wednesday 20 May.
+        $late = $this->itTicket(['priority_id' => $priority->id], [], null, '2026-05-15 09:00:00');
+        // Tuesday 19 May: due Thursday 21 May.
+        $fresh = $this->itTicket(['priority_id' => $priority->id], [], null, '2026-05-19 09:00:00');
+
+        $rows = collect($this->getJson(self::URL)->assertOk()->json('result.ticket.data'));
+
+        $lateRow = $rows->firstWhere('id', $late->id);
+        $freshRow = $rows->firstWhere('id', $fresh->id);
+        $this->assertSame('2026-05-19', substr($lateRow['due_at'], 0, 10));
+        $this->assertSame('2026-05-15', substr($lateRow['clock_started_at'], 0, 10));
+        $this->assertTrue($lateRow['is_overdue']);
+        $this->assertSame('2026-05-21', substr($freshRow['due_at'], 0, 10));
+        $this->assertFalse($freshRow['is_overdue']);
+    }
+
     public function test_per_page_defaults_to_ten_and_is_bounded(): void
     {
         $this->actingAsUser($this->itUser());
