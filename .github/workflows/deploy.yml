@@ -14,8 +14,7 @@ jobs:
           # stop immediately if any command fails
           function Run($c) { Invoke-Expression $c; if ($LASTEXITCODE -ne 0) { throw "FAILED: $c" } }
 
-          cd C:\nginx\www\apps          # <-- change this to your project folder
-
+          cd C:\nginx\www\TicketingSystem-API         # <-- change this to your project folder
           Run "php artisan down --render='errors::503'"
           Run "git pull origin main"
           Run "composer install --no-dev --optimize-autoloader"
