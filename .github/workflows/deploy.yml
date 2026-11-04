@@ -1,0 +1,27 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]      # only deploys when you push to main
+
+jobs:
+  deploy:
+    runs-on: self-hosted  # use the runner on YOUR server
+    steps:
+      - name: Deploy the app
+        shell: powershell
+        run: |
+          # stop immediately if any command fails
+          function Run($c) { Invoke-Expression $c; if ($LASTEXITCODE -ne 0) { throw "FAILED: $c" } }
+
+          cd C:\nginx\www\apps          # <-- change this to your project folder
+
+          Run "php artisan down --render='errors::503'"
+          Run "git pull origin main"
+          Run "composer install --no-dev --optimize-autoloader"
+          # Run "npm ci"
+          # Run "npm run build"
+          Run "php artisan migrate --force"
+          Run "php artisan optimize:clear"
+          Run "php artisan optimize"
+          Run "php artisan up"
