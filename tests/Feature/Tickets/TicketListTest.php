@@ -125,7 +125,7 @@ class TicketListTest extends ApiTestCase
         $byArea = $this->itTicket([], ['name_of_area' => 'Radiology Wing']);
         $this->itTicket();
 
-        $this->assertSame([$byNumber->id], $this->listedIds('search=777'));
+        $this->assertSame([$byNumber->id], $this->listedIds('search=05-777'));
         $this->assertSame([$byArea->id], $this->listedIds('search=RADIOLOGY'));
     }
 
