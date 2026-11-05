@@ -169,7 +169,7 @@ class AccomplishmentReportController extends Controller
                     $requestedBy = $entry['requestor'] ? '. Requested by '.$entry['requestor'].'.' : '.';
 
                     $body->addText(
-                        $num.'. '.$prefix.$entry['text'].$requestedBy,
+                        $num.'. '.$prefix.rtrim($entry['text'], ". \t\n\r").$requestedBy,
                         [],
                         $indent
                     );

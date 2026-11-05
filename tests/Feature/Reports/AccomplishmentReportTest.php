@@ -130,6 +130,18 @@ class AccomplishmentReportTest extends ApiTestCase
         $this->assertStringContainsString('Requested by Juan Dela Cruz', $text);
     }
 
+    public function test_action_taken_ending_with_a_period_does_not_get_a_second_one(): void
+    {
+        $user = $this->actingAsUser($this->itUser());
+        $confirmation = $this->completion($user, 'Cleared the paper jam successfully.', '2026-05-03 09:00:00');
+        TicketDateActivity::query()->where('ticket_id', $confirmation->ticket->id)->where('date_category_id', 1)->update(['requestor' => 'Maria Santos']);
+
+        $text = $this->reportText();
+
+        $this->assertStringContainsString('Cleared the paper jam successfully. Requested by Maria Santos.', $text);
+        $this->assertStringNotContainsString('successfully..', $text);
+    }
+
     public function test_completion_outside_the_range_is_excluded(): void
     {
         $user = $this->actingAsUser($this->itUser());
