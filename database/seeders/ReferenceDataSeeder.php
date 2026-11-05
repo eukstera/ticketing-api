@@ -48,7 +48,7 @@ class ReferenceDataSeeder extends Seeder
         $this->seedTable('priority', [
             ['id' => 1, 'department_id' => 1, 'level' => 'Urgent & IHOMIS Related', 'sla_days' => 3, 'SLA' => '3'],
             ['id' => 2, 'department_id' => 1, 'level' => 'Urgent', 'sla_days' => 3, 'SLA' => '3'],
-            ['id' => 3, 'department_id' => 1, 'level' => 'Important but not urgent', 'sla_days' => 3, 'SLA' => '3'],
+            ['id' => 3, 'department_id' => 1, 'level' => 'Important but not urgent', 'sla_days' => 7, 'SLA' => '7'],
             ['id' => 4, 'department_id' => 1, 'level' => 'Long Term', 'sla_days' => 20, 'SLA' => '20'],
             ['id' => 5, 'department_id' => 2, 'level' => 'Urgent', 'sla_days' => 1, 'SLA' => '1'],
             ['id' => 6, 'department_id' => 2, 'level' => 'Complex', 'sla_days' => 2, 'SLA' => '2'],

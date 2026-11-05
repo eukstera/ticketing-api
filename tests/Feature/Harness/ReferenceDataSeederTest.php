@@ -16,7 +16,7 @@ class ReferenceDataSeederTest extends TestCase
         $this->assertSame(8, DB::table('status')->count());
         $this->assertSame(11, DB::table('date_categories')->count());
         $this->assertSame(7, DB::table('priority')->count());
-        $this->assertSame([3, 3, 3, 20], DB::table('priority')->where('department_id', 1)->orderBy('id')->pluck('sla_days')->map(fn ($days) => (int) $days)->all());
+        $this->assertSame([3, 3, 7, 20], DB::table('priority')->where('department_id', 1)->orderBy('id')->pluck('sla_days')->map(fn ($days) => (int) $days)->all());
     }
 
     public function test_rows_edited_by_an_admin_survive_a_second_run(): void
