@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\DB;
 /**
  * Enters the handwritten details of a blank job order into the same ticket and
  * number. The ticket becomes In-progress, still assigned to the member who
- * printed the form (or to the member a Department Head hands it to), and its
+ * printed the form (or to the member a Section Head hands it to), and its
  * SLA clock starts at the requested time written on the paper.
  */
 class FillBlankJobOrderController extends Controller
@@ -85,7 +85,7 @@ class FillBlankJobOrderController extends Controller
                 'status' => 1,
             ]);
 
-            // The printer stays the owner; a Department Head may hand it to another member.
+            // The printer stays the owner; a Section Head may hand it to another member.
             $owner = $assignee ?? $locked->assigned_user ?? $user->id;
 
             TicketDateActivity::updateOrCreate(

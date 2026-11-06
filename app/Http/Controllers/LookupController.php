@@ -35,8 +35,8 @@ class LookupController extends Controller
     {
         $roles = Role::where('status', true)
             ->orderBy('id')
-            ->get(['id', 'role', 'status'])
-            ->map(fn (Role $role) => ['id' => $role->id, 'name' => $role->role, 'status' => (bool) $role->status]);
+            ->get(['id', 'role', 'key', 'status'])
+            ->map(fn (Role $role) => ['id' => $role->id, 'name' => $role->role, 'key' => $role->key, 'status' => (bool) $role->status]);
 
         return $this->success('Roles retrieved successfully', [
             'result' => ['roles' => $roles],

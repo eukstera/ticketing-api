@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Jobs\SendTicketMail;
 use App\Models\DateCategory;
+use App\Models\Role;
 use App\Models\Status;
 use App\Models\Ticket;
 use App\Models\TicketConfirmation;
@@ -139,7 +140,7 @@ class CompletionConfirmationService
     }
 
     /**
-     * A Department Head closes a waiting ticket on the requester's behalf.
+     * A Section Head closes a waiting ticket on the requester's behalf.
      */
     public function closeOnBehalf(Ticket $ticket, User $head, string $reason, ?Request $request = null): TicketConfirmation
     {
@@ -358,7 +359,7 @@ class CompletionConfirmationService
     }
 
     /**
-     * The assignee and the Department Heads of the ticket's department.
+     * The assignee and the Section Heads of the ticket's department.
      *
      * @return list<string>
      */
@@ -369,7 +370,7 @@ class CompletionConfirmationService
             ->where(function ($query) use ($ticket) {
                 $query->whereKey($ticket->assigned_user)
                     ->orWhere(fn ($heads) => $heads->where('department_id', $ticket->department)
-                        ->whereHas('role', fn ($role) => $role->where('role', 'Department Head')));
+                        ->whereHas('role', fn ($role) => $role->where('key', Role::DEPARTMENT_HEAD)));
             })
             ->pluck('email')
             ->filter()

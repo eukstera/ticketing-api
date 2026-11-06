@@ -11,7 +11,7 @@ use Illuminate\Validation\Rule;
 class AssignTicketRequest extends FormRequest
 {
     /**
-     * Department Heads assign anyone; other staff may only take an untaken ticket for themselves.
+     * Section Heads assign anyone; other staff may only take an untaken ticket for themselves.
      */
     public function authorize(): Response
     {

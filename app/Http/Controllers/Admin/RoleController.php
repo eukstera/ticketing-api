@@ -11,8 +11,6 @@ use Illuminate\Http\JsonResponse;
 
 class RoleController extends AdminResourceController
 {
-    public const PROTECTED_ROLE = 'Department Head';
-
     protected function modelClass(): string
     {
         return Role::class;
@@ -59,7 +57,7 @@ class RoleController extends AdminResourceController
     protected function guardUpdate(Model $row, array $attributes): ?JsonResponse
     {
         if ($this->isProtected($row) && ($attributes['role'] ?? $row->role) !== $row->role) {
-            return $this->error('The Department Head role cannot be renamed.', 409);
+            return $this->error('The Section Head role cannot be renamed.', 409);
         }
 
         return null;
@@ -71,7 +69,7 @@ class RoleController extends AdminResourceController
     protected function guardDeactivate(Model $row): ?JsonResponse
     {
         if ($this->isProtected($row)) {
-            return $this->error('The Department Head role cannot be deactivated.', 409);
+            return $this->error('The Section Head role cannot be deactivated.', 409);
         }
 
         $holders = User::query()->where('role_id', $row->id)->where('status', true)->count();
@@ -89,6 +87,6 @@ class RoleController extends AdminResourceController
 
     private function isProtected(Role $role): bool
     {
-        return $role->role === self::PROTECTED_ROLE;
+        return $role->key === Role::DEPARTMENT_HEAD;
     }
 }

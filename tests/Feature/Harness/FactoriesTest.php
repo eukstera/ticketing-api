@@ -23,7 +23,7 @@ class FactoriesTest extends TestCase
 
         $this->assertSame(1, $this->itDepartment()->id);
         $this->assertSame(2, $this->engineeringDepartment()->id);
-        $this->assertDatabaseHas('roles', ['role' => 'Department Head']);
+        $this->assertDatabaseHas('roles', ['role' => 'Section Head']);
         $this->assertDatabaseHas('status', ['label' => 'Overdue']);
     }
 
@@ -36,7 +36,7 @@ class FactoriesTest extends TestCase
         $normal = User::factory()->normalUser()->create();
 
         $this->assertSame($engineer->department_id, Designation::find($engineer->designation_id)->department_id);
-        $this->assertSame('Department Head', Role::find($head->role_id)->role);
+        $this->assertSame('Section Head', Role::find($head->role_id)->role);
         $this->assertSame('Normal User', Role::find($normal->role_id)->role);
     }
 

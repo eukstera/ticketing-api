@@ -12,9 +12,18 @@ class RoleFactory extends Factory
 {
     public const NORMAL_USER = 'Normal User';
 
-    public const DEPARTMENT_HEAD = 'Department Head';
+    public const DEPARTMENT_HEAD = 'Section Head';
 
-    public const ENCODER = 'Encoder';
+    public const ENCODER = 'Section Secretary';
+
+    /**
+     * The key of each built-in role, by its name.
+     */
+    public const KEYS = [
+        self::NORMAL_USER => Role::NORMAL_USER,
+        self::DEPARTMENT_HEAD => Role::DEPARTMENT_HEAD,
+        self::ENCODER => Role::ENCODER,
+    ];
 
     protected $model = Role::class;
 
@@ -25,6 +34,7 @@ class RoleFactory extends Factory
     {
         return [
             'role' => fake()->unique()->jobTitle(),
+            'key' => fn (array $attributes) => self::KEYS[$attributes['role']] ?? null,
             'status' => true,
         ];
     }

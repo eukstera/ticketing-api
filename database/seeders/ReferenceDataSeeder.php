@@ -3,13 +3,14 @@
 namespace Database\Seeders;
 
 use App\Models\ReportSignatory;
+use App\Models\Role;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Seeds the lookup tables with fixed ids so the frontend's assumptions
- * (e.g. IT = 1, Department Head = 2) hold. Safe to run repeatedly.
+ * (e.g. IT = 1, Section Head = 2) hold. Safe to run repeatedly.
  */
 class ReferenceDataSeeder extends Seeder
 {
@@ -19,9 +20,9 @@ class ReferenceDataSeeder extends Seeder
     public function run(): void
     {
         $this->seedTable('roles', [
-            ['id' => 1, 'role' => 'Normal User'],
-            ['id' => 2, 'role' => 'Department Head'],
-            ['id' => 3, 'role' => 'Encoder'],
+            ['id' => 1, 'role' => 'Normal User', 'key' => Role::NORMAL_USER],
+            ['id' => 2, 'role' => 'Section Head', 'key' => Role::DEPARTMENT_HEAD],
+            ['id' => 3, 'role' => 'Section Secretary', 'key' => Role::ENCODER],
         ], ['role']);
 
         $this->seedTable('departments', [

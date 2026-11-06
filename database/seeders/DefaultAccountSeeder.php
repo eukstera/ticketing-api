@@ -7,7 +7,7 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * Creates the default Department Head account in IT so the system can be
+ * Creates the default Section Head account in IT so the system can be
  * logged into after a fresh install. Requires ReferenceDataSeeder to have
  * run first. Safe to run repeatedly: an existing account is left untouched,
  * so a changed password is never reset.

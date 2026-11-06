@@ -22,7 +22,7 @@ class TicketConfirmationController extends Controller
     public function __construct(private CompletionConfirmationService $confirmations) {}
 
     /**
-     * A Department Head closes the ticket on the requester's behalf.
+     * A Section Head closes the ticket on the requester's behalf.
      */
     public function close(CloseOnBehalfRequest $request, Ticket $ticket): JsonResponse
     {

@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Throwable;
 
 /**
- * Consolidated report of the caller's own department, for Encoders and Department Heads.
+ * Consolidated report of the caller's own department, for Section Secretaries and Section Heads.
  */
 class ConsolidatedReportController extends Controller
 {

@@ -106,7 +106,7 @@ class BlankJobOrderTest extends ApiTestCase
         $this->reserve()->assertCreated();
 
         $this->actingAsUser($this->encoder());
-        $this->reserve()->assertForbidden()->assertJsonPath('message', 'Encoders have read-only access.');
+        $this->reserve()->assertForbidden()->assertJsonPath('message', 'Section Secretaries have read-only access.');
 
         $this->actingAsUser($this->engineeringUser());
         $this->reserve()->assertForbidden()->assertJsonPath('message', 'Blank job orders can only be printed by the IT department.');
@@ -358,7 +358,7 @@ class BlankJobOrderTest extends ApiTestCase
 
         $this->actingAsUser($this->encoder());
         $this->patchJson("/api/tickets/{$other->id}/fill-blank", $this->fillPayload())->assertForbidden()
-            ->assertJsonPath('message', 'Encoders have read-only access.');
+            ->assertJsonPath('message', 'Section Secretaries have read-only access.');
     }
 
     // ------------------------------------------------------------- void
@@ -417,7 +417,7 @@ class BlankJobOrderTest extends ApiTestCase
 
         $this->actingAsUser($this->encoder());
         $this->postJson("/api/tickets/{$ticket->id}/void", ['reason' => 'Not mine'])->assertForbidden()
-            ->assertJsonPath('message', 'Encoders have read-only access.');
+            ->assertJsonPath('message', 'Section Secretaries have read-only access.');
 
         $this->actingAsAdmin();
         $this->postJson("/api/tickets/{$ticket->id}/void", ['reason' => 'Head voids it'])->assertOk();

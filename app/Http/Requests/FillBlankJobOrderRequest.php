@@ -11,8 +11,8 @@ use Illuminate\Validation\Rule;
 class FillBlankJobOrderRequest extends FormRequest
 {
     /**
-     * Only the member who printed the form (its owner) and Department Heads fill it
-     * in. Handing it to someone else follows the assign rule: Department Heads only.
+     * Only the member who printed the form (its owner) and Section Heads fill it
+     * in. Handing it to someone else follows the assign rule: Section Heads only.
      */
     public function authorize(): Response
     {

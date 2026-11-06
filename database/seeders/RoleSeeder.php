@@ -16,9 +16,9 @@ class RoleSeeder extends Seeder
         $now = Carbon::now();
 
         $data = [
-            ['role' => 'Normal User', 'created_at' => $now, 'updated_at' => $now],
-            ['role' => 'Department Head', 'created_at' => $now, 'updated_at' => $now],
-            ['role' => 'Encoder', 'created_at' => $now, 'updated_at' => $now],
+            ['role' => 'Normal User', 'key' => Role::NORMAL_USER, 'created_at' => $now, 'updated_at' => $now],
+            ['role' => 'Section Head', 'key' => Role::DEPARTMENT_HEAD, 'created_at' => $now, 'updated_at' => $now],
+            ['role' => 'Section Secretary', 'key' => Role::ENCODER, 'created_at' => $now, 'updated_at' => $now],
         ];
 
         Role::insert($data);

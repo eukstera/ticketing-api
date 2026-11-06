@@ -88,7 +88,7 @@ class ConsolidatedReportTest extends ApiTestCase
         foreach (['', '/options', '/export'] as $path) {
             $this->getJson('/api/reports/consolidated'.$path)
                 ->assertForbidden()
-                ->assertJsonPath('message', 'Only Encoders and Department Heads can view the consolidated report.');
+                ->assertJsonPath('message', 'Only Section Secretaries and Section Heads can view the consolidated report.');
         }
     }
 

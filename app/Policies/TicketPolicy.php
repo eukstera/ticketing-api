@@ -10,10 +10,10 @@ use Illuminate\Support\Facades\Gate;
 
 class TicketPolicy
 {
-    public const ENCODER_MESSAGE = 'Encoders have read-only access.';
+    public const ENCODER_MESSAGE = 'Section Secretaries have read-only access.';
 
     /**
-     * Every action that changes a ticket; Encoders may only view and export.
+     * Every action that changes a ticket; Section Secretaries may only view and export.
      *
      * @var list<string>
      */
@@ -45,11 +45,11 @@ class TicketPolicy
     }
 
     /**
-     * Department Heads pass in before(); everyone else may only take (see take()).
+     * Section Heads pass in before(); everyone else may only take (see take()).
      */
     public function assign(User $user, Ticket $ticket): Response
     {
-        return Response::deny('Only Department Heads can assign tickets. You can only take an untaken ticket yourself.');
+        return Response::deny('Only Section Heads can assign tickets. You can only take an untaken ticket yourself.');
     }
 
     /**
@@ -100,11 +100,11 @@ class TicketPolicy
     }
 
     /**
-     * Department Heads pass in before(); nobody else may close for the requester.
+     * Section Heads pass in before(); nobody else may close for the requester.
      */
     public function closeOnBehalf(User $user, Ticket $ticket): Response
     {
-        return Response::deny("Only Department Heads can close a ticket on the requester's behalf.");
+        return Response::deny("Only Section Heads can close a ticket on the requester's behalf.");
     }
 
     public function resendConfirmation(User $user, Ticket $ticket): Response
@@ -116,11 +116,11 @@ class TicketPolicy
     }
 
     /**
-     * Department Heads pass in before(); nobody else may reopen.
+     * Section Heads pass in before(); nobody else may reopen.
      */
     public function reopen(User $user, Ticket $ticket): Response
     {
-        return Response::deny('Only Department Heads can reopen a ticket.');
+        return Response::deny('Only Section Heads can reopen a ticket.');
     }
 
     public function complete(User $user, Ticket $ticket): Response

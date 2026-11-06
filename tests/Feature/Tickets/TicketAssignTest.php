@@ -52,7 +52,7 @@ class TicketAssignTest extends ApiTestCase
         $this->postJson("/api/tickets/{$ticket->id}/assign", ['user_id' => $colleague->id])
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Only Department Heads can assign tickets. You can only take an untaken ticket yourself.');
+            ->assertJsonPath('message', 'Only Section Heads can assign tickets. You can only take an untaken ticket yourself.');
 
         $this->assertNull($ticket->fresh()->assigned_user);
         $this->assertSame(1, (int) $ticket->fresh()->status_id);

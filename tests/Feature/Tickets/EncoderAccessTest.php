@@ -10,7 +10,7 @@ use Tests\ApiTestCase;
 
 class EncoderAccessTest extends ApiTestCase
 {
-    private const MESSAGE = 'Encoders have read-only access.';
+    private const MESSAGE = 'Section Secretaries have read-only access.';
 
     private function encoder(): User
     {
@@ -21,8 +21,8 @@ class EncoderAccessTest extends ApiTestCase
     {
         $encoder = $this->encoder();
 
-        $this->assertContains('Encoder', array_column($this->getJson('/api/roles')->assertOk()->json('result.roles'), 'name'));
-        $this->getJson('/api/me')->assertOk()->assertJsonPath('result.user.role.name', 'Encoder')->assertJsonPath('result.user.id', $encoder->id);
+        $this->assertContains('Section Secretary', array_column($this->getJson('/api/roles')->assertOk()->json('result.roles'), 'name'));
+        $this->getJson('/api/me')->assertOk()->assertJsonPath('result.user.role.name', 'Section Secretary')->assertJsonPath('result.user.id', $encoder->id);
     }
 
     public function test_an_encoder_can_read_tickets_and_comments_of_their_own_department(): void

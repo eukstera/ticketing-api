@@ -122,7 +122,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/tickets/{ticket}/confirmation/close', [TicketConfirmationController::class, 'close']);
     Route::post('/tickets/{ticket}/confirmation/resend', [TicketConfirmationController::class, 'resend']);
 
-    // reopen a false-alarm ticket (Department Heads only)
+    // reopen a false-alarm ticket (Section Heads only)
     Route::post('/tickets/{ticket}/reopen', ReopenController::class);
 
     // ticket detail
@@ -152,7 +152,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // Generate accomplishment report
     Route::get('/reports/accomplishment', [AccomplishmentReportController::class, 'generate']);
 
-    // consolidated report of the caller's department (Encoders and Department Heads)
+    // consolidated report of the caller's department (Section Secretaries and Section Heads)
     Route::get('/reports/consolidated', [ConsolidatedReportController::class, 'index']);
     Route::get('/reports/consolidated/options', [ConsolidatedReportController::class, 'options']);
     Route::get('/reports/consolidated/export', [ConsolidatedReportController::class, 'export']);

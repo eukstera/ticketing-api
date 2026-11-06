@@ -48,7 +48,7 @@ class AccomplishmentReportTest extends ApiTestCase
         $this->getJson('/api/reports/accomplishment?'.http_build_query($this->range() + ['user_id' => $other->id]))
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', "Only Department Heads can export another user's report.");
+            ->assertJsonPath('message', "Only Section Heads can export another user's report.");
     }
 
     public function test_non_admin_can_pass_their_own_id(): void

@@ -30,7 +30,7 @@ class AccomplishmentReportController extends Controller
         if ($userId !== $request->user()->id && ! Gate::allows('admin')) {
             return response()->json([
                 'success' => false,
-                'message' => "Only Department Heads can export another user's report.",
+                'message' => "Only Section Heads can export another user's report.",
             ], 403);
         }
 

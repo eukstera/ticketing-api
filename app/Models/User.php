@@ -62,11 +62,11 @@ class User extends Authenticatable
     }
 
     /**
-     * Encoders have read-only access to their own department, plus exports.
+     * Section Secretaries have read-only access to their own department, plus exports.
      */
     public function isEncoder(): bool
     {
-        return $this->role?->role === 'Encoder';
+        return $this->role?->key === Role::ENCODER;
     }
 
     public function comments(): HasMany

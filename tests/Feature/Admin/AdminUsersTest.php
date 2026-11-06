@@ -33,7 +33,7 @@ class AdminUsersTest extends ApiTestCase
             ['id', 'first_name', 'last_name', 'email', 'status', 'department_id', 'designation_id', 'role', 'department', 'designation'],
             array_keys($row)
         );
-        $this->assertSame(['id', 'name'], array_keys($row['role']));
+        $this->assertSame(['id', 'name', 'key'], array_keys($row['role']));
         $this->assertSame(['id', 'name'], array_keys($row['department']));
         $this->assertSame(['id', 'name'], array_keys($row['designation']));
         $this->assertArrayNotHasKey('password', $row);
@@ -118,7 +118,7 @@ class AdminUsersTest extends ApiTestCase
     {
         $this->actingAsAdmin();
         $user = User::factory()->create();
-        $headRole = Role::query()->where('role', 'Department Head')->firstOrFail();
+        $headRole = Role::query()->where('role', 'Section Head')->firstOrFail();
         $designation = Designation::query()->where('department_id', 2)->firstOrFail();
 
         $this->patchJson("/api/admin/users/{$user->id}", [
@@ -132,7 +132,7 @@ class AdminUsersTest extends ApiTestCase
             ->assertJsonPath('success', true)
             ->assertJsonPath('result.user.first_name', 'Renamed')
             ->assertJsonPath('result.user.department.name', 'Engineering')
-            ->assertJsonPath('result.user.role.name', 'Department Head');
+            ->assertJsonPath('result.user.role.name', 'Section Head');
 
         $this->assertDatabaseHas('users', ['id' => $user->id, 'email' => 'renamed@example.test', 'department_id' => 2]);
     }

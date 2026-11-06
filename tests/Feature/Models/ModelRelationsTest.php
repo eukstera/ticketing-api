@@ -21,7 +21,7 @@ class ModelRelationsTest extends TestCase
         $this->seedReferenceData();
         $user = User::factory()->departmentHead()->inDepartment($this->engineeringDepartment())->create();
 
-        $this->assertSame('Department Head', $user->role->role);
+        $this->assertSame('Section Head', $user->role->role);
         $this->assertSame('Engineering', $user->department->department);
         $this->assertSame($user->department_id, $user->designation->department_id);
     }

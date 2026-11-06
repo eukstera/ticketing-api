@@ -24,7 +24,7 @@ class AuthTest extends ApiTestCase
         $response->assertSuccessful()
             ->assertJsonPath('success', true)
             ->assertJsonPath('result.user.id', $user->id)
-            ->assertJsonPath('result.user.role.name', 'Department Head')
+            ->assertJsonPath('result.user.role.name', 'Section Head')
             ->assertJsonPath('result.user.status', true)
             ->assertJsonStructure(['result' => [
                 'user' => ['id', 'first_name', 'last_name', 'email', 'status', 'department_id', 'designation_id',

@@ -611,7 +611,7 @@ class CompletionConfirmationTest extends ApiTestCase
         $this->actingAsUser($this->itUser());
         $this->postJson("/api/tickets/{$ticket->id}/confirmation/close", ['reason' => 'Requester has no email'])
             ->assertForbidden()
-            ->assertJsonPath('message', "Only Department Heads can close a ticket on the requester's behalf.");
+            ->assertJsonPath('message', "Only Section Heads can close a ticket on the requester's behalf.");
 
         $head = $this->actingAsAdmin();
         $this->postJson("/api/tickets/{$ticket->id}/confirmation/close", ['reason' => 'no'])->assertUnprocessable()->assertJsonValidationErrors(['reason']);

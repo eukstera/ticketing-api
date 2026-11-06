@@ -9,6 +9,12 @@ class Role extends Model
 {
     use HasFactory;
 
+    public const NORMAL_USER = 'normal-user';
+
+    public const DEPARTMENT_HEAD = 'department-head';
+
+    public const ENCODER = 'encoder';
+
     protected $fillable = [
         'role',
         'status',

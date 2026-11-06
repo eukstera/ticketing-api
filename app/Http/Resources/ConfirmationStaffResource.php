@@ -23,7 +23,7 @@ class ConfirmationStaffResource extends JsonResource
     {
         $this->resource->loadMissing(['completedBy', 'survey', 'mailLogs', 'ticket']);
 
-        // The satisfaction answers are for the handling department and Department Heads only.
+        // The satisfaction answers are for the handling department and Section Heads only.
         $viewer = $request->user();
         $canSeeAnswers = $viewer !== null
             && ((int) $viewer->department_id === (int) $this->ticket?->department || Gate::forUser($viewer)->allows('admin'));

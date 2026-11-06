@@ -77,7 +77,7 @@ class NewTicketsTest extends ApiTestCase
         $this->getJson('/api/tickets/new')
             ->assertForbidden()
             ->assertJsonPath('success', false)
-            ->assertJsonPath('message', 'Only IT staff and Department Heads can see new tickets.');
+            ->assertJsonPath('message', 'Only IT staff and Section Heads can see new tickets.');
     }
 
     public function test_call_without_after_id_returns_only_the_baseline(): void

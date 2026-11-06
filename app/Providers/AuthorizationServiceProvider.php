@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Models\Role;
 use App\Models\User;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -25,21 +26,21 @@ class AuthorizationServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        Gate::define('admin', fn (User $user): Response => $user->role?->role === 'Department Head'
+        Gate::define('admin', fn (User $user): Response => $user->role?->key === Role::DEPARTMENT_HEAD
             ? Response::allow()
-            : Response::deny('Only Department Heads can manage this.'));
+            : Response::deny('Only Section Heads can manage this.'));
 
         Gate::define('view-new-tickets', fn (User $user): Response => $user->department_id === 1 || Gate::forUser($user)->allows('admin')
             ? Response::allow()
-            : Response::deny('Only IT staff and Department Heads can see new tickets.'));
+            : Response::deny('Only IT staff and Section Heads can see new tickets.'));
 
         Gate::define('consolidated-report', fn (User $user): Response => $user->department_id !== null && ($user->isEncoder() || Gate::forUser($user)->allows('admin'))
             ? Response::allow()
-            : Response::deny('Only Encoders and Department Heads can view the consolidated report.'));
+            : Response::deny('Only Section Secretaries and Section Heads can view the consolidated report.'));
 
         Gate::define('print-blank-job-order', function (User $user): Response {
             if ($user->isEncoder()) {
-                return Response::deny('Encoders have read-only access.');
+                return Response::deny('Section Secretaries have read-only access.');
             }
 
             return (int) $user->department_id === 1

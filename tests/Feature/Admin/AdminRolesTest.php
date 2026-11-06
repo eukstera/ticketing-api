@@ -50,7 +50,7 @@ class AdminRolesTest extends AdminResourceTestCase
 
     private function departmentHeadRole(): Role
     {
-        return Role::query()->where('role', 'Department Head')->firstOrFail();
+        return Role::query()->where('role', 'Section Head')->firstOrFail();
     }
 
     public function test_department_head_role_cannot_be_renamed(): void
@@ -62,7 +62,33 @@ class AdminRolesTest extends AdminResourceTestCase
             ->assertStatus(409)
             ->assertJsonPath('success', false);
 
-        $this->assertSame('Department Head', $role->fresh()->role);
+        $this->assertSame('Section Head', $role->fresh()->role);
+    }
+
+    public function test_built_in_roles_carry_their_stable_keys_and_the_key_is_read_only(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->assertSame(
+            ['normal-user', 'department-head', 'encoder'],
+            Role::query()->whereIn('role', ['Normal User', 'Section Head', 'Section Secretary'])->orderBy('id')->pluck('key')->all()
+        );
+
+        $custom = $this->newRow(self::MARKER.' Custom');
+        $this->assertNull($custom->key);
+
+        $this->patchJson($this->rowUrl($custom), ['name' => self::MARKER.' Custom 2', 'key' => 'department-head'])->assertOk();
+
+        $this->assertNull($custom->fresh()->key);
+    }
+
+    public function test_the_protected_role_follows_its_key_not_its_name(): void
+    {
+        $this->actingAsAdmin();
+        $role = $this->departmentHeadRole();
+        Role::query()->whereKey($role->getKey())->update(['role' => 'Chief of Section']);
+
+        $this->patchJson($this->rowUrl($role), ['name' => 'Supervisor'])->assertStatus(409);
     }
 
     public function test_department_head_role_cannot_be_deleted_or_deactivated(): void
@@ -81,7 +107,7 @@ class AdminRolesTest extends AdminResourceTestCase
         $this->actingAsAdmin();
         $role = $this->departmentHeadRole();
 
-        $this->patchJson($this->rowUrl($role), ['name' => 'Department Head', 'status' => true])->assertOk();
+        $this->patchJson($this->rowUrl($role), ['name' => 'Section Head', 'status' => true])->assertOk();
     }
 
     public function test_role_held_by_active_users_cannot_be_deactivated(): void
@@ -132,8 +158,8 @@ class AdminRolesTest extends AdminResourceTestCase
         $roles = $this->getJson('/api/roles')->assertOk()->json('result.roles');
 
         $this->assertNotContains(self::MARKER.' Hidden', array_column($roles, 'name'));
-        $this->assertEqualsCanonicalizing(['Normal User', 'Department Head', 'Encoder'], array_column($roles, 'name'));
-        $this->assertSame(['id', 'name', 'status'], array_keys($roles[0]));
+        $this->assertEqualsCanonicalizing(['Normal User', 'Section Head', 'Section Secretary'], array_column($roles, 'name'));
+        $this->assertSame(['id', 'name', 'key', 'status'], array_keys($roles[0]));
         $this->assertTrue($roles[0]['status']);
     }
 }
