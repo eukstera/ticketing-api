@@ -13,12 +13,26 @@ return new class extends Migration
      */
     public function up(): void
     {
+        $builtIn = ['normal user' => 'normal-user', 'department head' => 'department-head', 'encoder' => 'encoder'];
+
+        // Without a Department Head row nobody would keep admin access, so stop before
+        // anything changes. A database that has no roles yet (a fresh install) is fine.
+        $names = DB::table('roles')->pluck('role')->map(fn ($role) => strtolower(trim($role)));
+
+        if ($names->isNotEmpty() && ! $names->contains('department head')) {
+            throw new RuntimeException('No "Department Head" role was found in the roles table, so the admin role cannot be given its key. Rename the admin role to "Department Head" and run the migration again.');
+        }
+
         Schema::table('roles', function (Blueprint $table) {
             $table->string('key')->nullable()->unique()->after('role');
         });
 
-        foreach (['Normal User' => 'normal-user', 'Department Head' => 'department-head', 'Encoder' => 'encoder'] as $name => $key) {
-            DB::table('roles')->where('role', $name)->whereNull('key')->update(['key' => $key]);
+        foreach (DB::table('roles')->get(['id', 'role']) as $role) {
+            $key = $builtIn[strtolower(trim($role->role))] ?? null;
+
+            if ($key !== null && ! DB::table('roles')->where('key', $key)->exists()) {
+                DB::table('roles')->where('id', $role->id)->update(['key' => $key]);
+            }
         }
     }
 
