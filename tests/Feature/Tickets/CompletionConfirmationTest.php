@@ -428,6 +428,7 @@ class CompletionConfirmationTest extends ApiTestCase
         Mail::assertSent(TicketDisputedMail::class, fn ($mail) => $mail->hasTo($assignee->email));
         Mail::assertSent(TicketDisputedMail::class, fn ($mail) => $mail->hasTo($head->email));
         Mail::assertNotSent(TicketDisputedMail::class, fn ($mail) => $mail->hasTo($otherDepartmentHead->email));
+        Mail::assertSent(TicketDisputedMail::class, fn ($mail) => str_contains($mail->envelope()->subject, 'was reported as not fixed by the requester'));
     }
 
     public function test_a_dispute_needs_a_real_reason(): void

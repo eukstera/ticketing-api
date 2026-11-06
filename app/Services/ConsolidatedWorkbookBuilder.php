@@ -128,7 +128,7 @@ class ConsolidatedWorkbookBuilder
             ['Overdue', $kpis['overdue'], '#,##0'],
             ['False alarm rate', $this->fraction($kpis['false_alarm_rate_percent']), '0.0%'],
             ['Avg. satisfaction', $kpis['avg_satisfaction'], '0.0" / 5"'],
-            ['Disputes', $kpis['disputes'], '#,##0'],
+            ['Not fixed', $kpis['disputes'], '#,##0'],
             ['Voided', $kpis['voided'], '#,##0'],
         ];
 
@@ -305,7 +305,7 @@ class ConsolidatedWorkbookBuilder
      */
     private function ticketsSheet(Worksheet $sheet, Collection $rows): void
     {
-        $headers = ['Ticket no.', 'Requested', 'Requesting department', 'Requester', 'Concern type', 'Priority', 'Status', 'Handled by', 'Completed', 'Resolution time (hours)', 'Resolution time', 'Within SLA', 'Satisfaction (1-5)', 'Disputed', 'Action taken', 'Void reason'];
+        $headers = ['Ticket no.', 'Requested', 'Requesting department', 'Requester', 'Concern type', 'Priority', 'Status', 'Handled by', 'Completed', 'Resolution time (hours)', 'Resolution time', 'Within SLA', 'Satisfaction (1-5)', 'Reported as not fixed', 'Action taken', 'Void reason'];
         $widths = [16, 17, 26, 22, 24, 26, 20, 22, 17, 14, 14, 11, 13, 10, 50, 40];
 
         foreach ($headers as $index => $header) {
@@ -505,8 +505,8 @@ class ConsolidatedWorkbookBuilder
         }
 
         $row += 2;
-        $sheet->setCellValue("A{$row}", 'Disputed ticket');
-        $sheet->setCellValue("B{$row}", 'Disputed on');
+        $sheet->setCellValue("A{$row}", 'Ticket reported as not fixed');
+        $sheet->setCellValue("B{$row}", 'Reported on');
         $sheet->setCellValue("D{$row}", 'Reason');
         $this->headerStyle($sheet, "A{$row}:D{$row}");
         foreach ($satisfaction['disputes'] as $dispute) {

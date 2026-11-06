@@ -9,7 +9,7 @@ use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
 /**
- * Tells the technician and the department head that a requester disputed a completion.
+ * Tells the technician and the department head that a requester reported a completion as not fixed.
  */
 class TicketDisputedMail extends Mailable
 {
@@ -17,7 +17,7 @@ class TicketDisputedMail extends Mailable
 
     public function envelope(): Envelope
     {
-        return new Envelope(subject: "Ticket {$this->ticket->ticket_number} was disputed by the requester");
+        return new Envelope(subject: "Ticket {$this->ticket->ticket_number} was reported as not fixed by the requester");
     }
 
     public function content(): Content

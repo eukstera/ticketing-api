@@ -323,6 +323,28 @@ class ConsolidatedReportTest extends ApiTestCase
         $this->assertContains('Voided', $labels);
     }
 
+    public function test_the_workbook_says_not_fixed_where_it_used_to_say_disputed(): void
+    {
+        $this->actingAsUser($this->encoder());
+
+        $response = $this->get('/api/reports/consolidated/export?'.http_build_query(self::RANGE))->assertOk();
+        $spreadsheet = IOFactory::load($response->baseResponse->getFile()->getPathname());
+
+        $this->assertSame('Reported as not fixed', $spreadsheet->getSheetByName('Tickets')->getCell('N1')->getValue());
+
+        $texts = [];
+        foreach ($spreadsheet->getAllSheets() as $sheet) {
+            foreach ($sheet->getRowIterator() as $row) {
+                foreach ($row->getCellIterator() as $cell) {
+                    $texts[] = (string) $cell->getValue();
+                }
+            }
+        }
+        $this->assertContains('Not fixed', $texts);
+        $this->assertNotEmpty($texts);
+        $this->assertSame([], array_values(array_filter($texts, fn (string $text) => stripos($text, 'disput') !== false)));
+    }
+
     public function test_pagination_and_validation(): void
     {
         $this->actingAsUser($this->encoder());

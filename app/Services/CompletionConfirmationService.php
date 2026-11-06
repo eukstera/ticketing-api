@@ -313,7 +313,7 @@ class CompletionConfirmationService
 
         match ($locked->state) {
             TicketConfirmation::CONFIRMED => throw new ConfirmationException('This ticket has already been confirmed.'),
-            TicketConfirmation::DISPUTED => throw new ConfirmationException('This ticket has already been disputed.'),
+            TicketConfirmation::DISPUTED => throw new ConfirmationException('This ticket has already been reported as not fixed.'),
             TicketConfirmation::AUTO_CLOSED, TicketConfirmation::HEAD_CLOSED => throw new ConfirmationException('This ticket was already closed.'),
             default => null,
         };
