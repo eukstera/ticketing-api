@@ -6,6 +6,10 @@ use App\Models\TypeOfConcern;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates the staff "request ticket" form for IT: the same fields as the public form plus the
+ * technician it is assigned to.
+ */
 class SaveRequestTicketITRequest extends FormRequest
 {
     public function authorize(): bool

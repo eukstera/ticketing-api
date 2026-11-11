@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * The nature-of-work options of an Engineering ticket.
+ */
 class NatureOfWork extends Model
 {
     use HasFactory;

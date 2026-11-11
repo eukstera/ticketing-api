@@ -5,6 +5,10 @@ namespace App\Providers;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
+/**
+ * Application service provider. Nothing is registered here; authorization and rate limits are in
+ * AuthorizationServiceProvider.
+ */
 class AppServiceProvider extends ServiceProvider
 {
     /**

@@ -15,12 +15,6 @@ class PrioritySeeder extends Seeder
     {
         $now = Carbon::now();
 
-        // $data = [
-        //     ['level' => 'Low', 'created_at' => $now, 'updated_at' => $now],
-        //     ['level' => 'Moderate', 'created_at' => $now, 'updated_at' => $now],
-        //     ['level' => 'High', 'created_at' => $now, 'updated_at' => $now]
-        // ];
-
         $data = [
             ['department_id' => 1, 'level' => 'Urgent & IHOMIS Related', 'SLA' => '1', 'sla_days' => 1, 'created_at' => $now, 'updated_at' => $now],
             ['department_id' => 1, 'level' => 'Urgent', 'SLA' => '2', 'sla_days' => 2, 'created_at' => $now, 'updated_at' => $now],

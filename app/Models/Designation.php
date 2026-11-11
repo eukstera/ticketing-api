@@ -7,6 +7,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * A job title inside a department (for example Tech Support). A user's designation must belong to the
+ * user's department.
+ */
 class Designation extends Model
 {
     use HasFactory;

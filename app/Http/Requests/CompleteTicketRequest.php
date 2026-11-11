@@ -6,6 +6,10 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Validates completing a ticket: notes of 10 to 2000 characters. The notes become the "action taken"
+ * in reports.
+ */
 class CompleteTicketRequest extends FormRequest
 {
     public function authorize(): Response

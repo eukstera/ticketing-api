@@ -6,6 +6,10 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Validates closing a waiting ticket for the requester (Section Heads only): a reason of 5 to 500
+ * characters.
+ */
 class CloseOnBehalfRequest extends FormRequest
 {
     public function authorize(): Response

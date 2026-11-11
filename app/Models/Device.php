@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * A device line (type and quantity) of an IT hardware ticket.
+ */
 class Device extends Model
 {
     use HasFactory;

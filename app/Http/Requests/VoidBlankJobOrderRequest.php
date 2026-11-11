@@ -6,6 +6,9 @@ use Illuminate\Auth\Access\Response;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Validates voiding a blank job order: a reason of 5 to 255 characters.
+ */
 class VoidBlankJobOrderRequest extends FormRequest
 {
     public function authorize(): Response

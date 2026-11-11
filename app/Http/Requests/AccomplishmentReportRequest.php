@@ -5,6 +5,10 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates the Accomplishment Report filters: a required date range, an optional user, and the
+ * signatory (an id from the list, or a name and title typed together).
+ */
 class AccomplishmentReportRequest extends FormRequest
 {
     public function authorize(): bool

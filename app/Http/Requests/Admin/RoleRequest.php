@@ -4,6 +4,9 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation for the role admin form. Only the name is editable; the role key is never accepted.
+ */
 class RoleRequest extends AdminResourceRequest
 {
     /**

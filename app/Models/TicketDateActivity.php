@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * One timeline event of a ticket (Requested, Assigned, Completed ...). Statuses change in the tickets
+ * table; the history of when and by whom lives here.
+ */
 class TicketDateActivity extends Model
 {
     use HasFactory;

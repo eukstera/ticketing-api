@@ -8,6 +8,10 @@ use App\Models\NatureOfWork;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Admin CRUD for the Engineering "nature of work" list. The shared behaviour is in
+ * AdminResourceController.
+ */
 class NatureOfWorkController extends AdminResourceController
 {
     public const PROTECTED_LABEL = 'Others';

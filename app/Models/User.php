@@ -10,6 +10,10 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * An account. Login is by email. status = false means the account is deactivated and cannot sign in.
+ * isEncoder() is true for the Section Secretary role (read-only access).
+ */
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;

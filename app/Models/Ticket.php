@@ -10,6 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 
+/**
+ * The central model: a job request. It owns the IT or Engineering detail row, the timeline
+ * (ticket_date_activities), comments, devices and the completion confirmation. The SLA helpers (dueAt,
+ * dueAtWithin, isPastDue, clockStartedAt) work on the working-day calendar. Use the timeline
+ * activities, not updated_at, to learn when something happened.
+ */
 class Ticket extends Model
 {
     use HasFactory;

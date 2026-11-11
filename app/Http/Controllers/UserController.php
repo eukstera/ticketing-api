@@ -10,10 +10,18 @@ use App\Models\User;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Employee and designation lists used when assigning tickets and creating accounts. Creating a
+ * designation is admin only.
+ */
 class UserController extends Controller
 {
     use ApiResponseTrait;
 
+    /**
+     * GET /api/employees. Active users of a department (default: the caller's) with their designation, for
+     * the assign list.
+     */
     public function index(ListEmployeesRequest $request): JsonResponse
     {
         $departmentId = $request->validated('department_id') ?? $request->user()->department_id;
@@ -31,6 +39,9 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/designations (public). The active designations, used by the account screens.
+     */
     public function getDesignations(ListDesignationsRequest $request): JsonResponse
     {
         $designations = Designation::where('department_id', $request->validated('department_id'))
@@ -42,6 +53,9 @@ class UserController extends Controller
         ]);
     }
 
+    /**
+     * POST /api/designations (admin only). Adds a designation to a department.
+     */
     public function storeDesignation(StoreDesignationRequest $request): JsonResponse
     {
         $designation = Designation::create($request->safe()->only(['department_id', 'designation']));

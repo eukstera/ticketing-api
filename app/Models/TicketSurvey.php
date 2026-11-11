@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * The requester's Customer Satisfaction Survey answers (seven ratings and a comment) for one
+ * completion confirmation.
+ */
 class TicketSurvey extends Model
 {
     /** @var list<string> */

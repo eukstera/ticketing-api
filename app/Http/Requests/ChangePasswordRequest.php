@@ -7,6 +7,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validates a password change: the current password must match, and the new one must be confirmed,
+ * differ from the current one, and have at least 8 characters with upper and lower case letters and a
+ * number.
+ */
 class ChangePasswordRequest extends FormRequest
 {
     public function authorize(): bool

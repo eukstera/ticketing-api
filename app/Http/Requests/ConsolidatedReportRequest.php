@@ -7,6 +7,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Validates the Consolidated Report filters (date range, requesting areas, statuses, priorities,
+ * concern types, staff) and paging.
+ */
 class ConsolidatedReportRequest extends FormRequest
 {
     public function authorize(): Response

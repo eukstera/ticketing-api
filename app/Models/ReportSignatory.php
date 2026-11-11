@@ -6,6 +6,9 @@ use Database\Factories\ReportSignatoryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * A person who can sign the Accomplishment Report. At most one active row is the default.
+ */
 class ReportSignatory extends Model
 {
     /** @use HasFactory<ReportSignatoryFactory> */

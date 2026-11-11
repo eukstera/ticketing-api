@@ -5,6 +5,9 @@ namespace App\Http\Requests\Admin;
 use App\Models\Designation;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validation for the designation admin form. A designation name is unique within its department.
+ */
 class DesignationRequest extends AdminResourceRequest
 {
     /**

@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validates editing an account as an admin. Every field is optional; the email stays unique.
+ */
 class UpdateAdminUserRequest extends FormRequest
 {
     public function authorize(): bool

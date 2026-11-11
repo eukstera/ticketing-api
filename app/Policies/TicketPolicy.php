@@ -8,6 +8,11 @@ use App\Models\User;
 use Illuminate\Auth\Access\Response;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Who may do what to a ticket. before() lets admins (Section Heads) through, except for complete, and
+ * blocks the read-only Section Secretary from every ability in ENCODER_BLOCKED. Blank job orders
+ * belong to the member who printed them.
+ */
 class TicketPolicy
 {
     public const ENCODER_MESSAGE = 'Section Secretaries have read-only access.';

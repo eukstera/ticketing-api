@@ -4,6 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates the priority list query: an optional department id.
+ */
 class ListPriorityRequest extends FormRequest
 {
     public function authorize(): bool

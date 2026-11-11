@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Admin CRUD for the people who can sign the Accomplishment Report. The default signatory must stay
+ * active; to remove the default, choose another default first.
+ */
 class ReportSignatoryController extends AdminResourceController
 {
     protected function modelClass(): string

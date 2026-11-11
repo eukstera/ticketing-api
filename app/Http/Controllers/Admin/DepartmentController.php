@@ -6,6 +6,9 @@ use App\Http\Requests\Admin\DepartmentRequest;
 use App\Http\Resources\Admin\DepartmentResource;
 use App\Models\Department;
 
+/**
+ * Admin CRUD for departments. The shared behaviour is in AdminResourceController.
+ */
 class DepartmentController extends AdminResourceController
 {
     protected function modelClass(): string

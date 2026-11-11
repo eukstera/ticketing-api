@@ -7,6 +7,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates account creation by an admin: names, a unique email, a password of at least 8 characters,
+ * and a department, designation (must belong to that department) and role.
+ */
 class StoreAdminUserRequest extends FormRequest
 {
     public function authorize(): bool

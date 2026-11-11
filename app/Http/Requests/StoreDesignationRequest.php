@@ -7,6 +7,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validates a new designation (admin only): a name of up to 100 characters, unique within its
+ * department.
+ */
 class StoreDesignationRequest extends FormRequest
 {
     public function authorize(): bool

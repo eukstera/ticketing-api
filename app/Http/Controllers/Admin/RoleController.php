@@ -9,6 +9,11 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Admin CRUD for roles. The built-in Section Head role is found by its key (Role::DEPARTMENT_HEAD),
+ * not its name: it cannot be renamed or deactivated. A role still held by active users cannot be
+ * deactivated.
+ */
 class RoleController extends AdminResourceController
 {
     protected function modelClass(): string

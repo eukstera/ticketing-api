@@ -13,10 +13,17 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
+/**
+ * Ticket comments: list, add, edit, delete. Only the author edits a comment; the author or an admin
+ * deletes it. Section Secretaries (read-only) cannot comment.
+ */
 class CommentController extends Controller
 {
     use ApiResponseTrait;
 
+    /**
+     * GET /api/tickets/{ticket}/comments. The comments of a ticket the caller may view.
+     */
     public function index(Request $request, Ticket $ticket): JsonResponse
     {
         $response = Gate::forUser($request->user())->inspect('viewComments', $ticket);
@@ -38,6 +45,9 @@ class CommentController extends Controller
         ]);
     }
 
+    /**
+     * POST /api/tickets/{ticket}/comments. Adds a comment as the signed-in user.
+     */
     public function store(StoreCommentRequest $request, Ticket $ticket): JsonResponse
     {
         $response = Gate::forUser($request->user())->inspect('comment', $ticket);
@@ -61,6 +71,9 @@ class CommentController extends Controller
         ], 201);
     }
 
+    /**
+     * PATCH /api/tickets/comments/{comment}. Edits your own comment.
+     */
     public function updateComment(UpdateCommentRequest $request, Comment $comment): JsonResponse
     {
         $response = Gate::forUser($request->user())->inspect('update', $comment);
@@ -79,6 +92,9 @@ class CommentController extends Controller
         ]);
     }
 
+    /**
+     * DELETE /api/tickets/comments/{comment}. The author or an admin deletes a comment.
+     */
     public function destroy(Request $request, Comment $comment): JsonResponse
     {
         $user = $request->user();

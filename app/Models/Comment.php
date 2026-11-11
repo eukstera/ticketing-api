@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * A comment on a ticket (comments table). The author is user_id.
+ */
 class Comment extends Model
 {
     use HasFactory;

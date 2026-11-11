@@ -5,6 +5,9 @@ namespace App\Http\Requests\Admin;
 use App\Models\Priority;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validation for the priority admin form: department, level name and SLA in working days.
+ */
 class PriorityRequest extends AdminResourceRequest
 {
     /**

@@ -5,6 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * A user role. Code finds the built-in roles by the stable key (normal-user, department-head,
+ * encoder), never by the display name that Admin can edit. Roles made in Admin have a null key.
+ */
 class Role extends Model
 {
     use HasFactory;

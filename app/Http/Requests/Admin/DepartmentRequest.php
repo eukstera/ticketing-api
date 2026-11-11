@@ -4,6 +4,10 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Validation\Rule;
 
+/**
+ * Validation for the department admin form. Authorization (admin only) comes from
+ * AdminResourceRequest.
+ */
 class DepartmentRequest extends AdminResourceRequest
 {
     /**

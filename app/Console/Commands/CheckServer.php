@@ -7,6 +7,11 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+/**
+ * php artisan tickets:check-server. Prints the PHP extensions, writable folders and development
+ * settings the system needs (see PhpRequirements). Run it after every deploy and when PDF or Excel
+ * generation fails.
+ */
 #[Signature('tickets:check-server')]
 #[Description('Check the PHP extensions, writable folders and settings the Ticketing System needs on this server')]
 class CheckServer extends Command

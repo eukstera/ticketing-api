@@ -4,6 +4,10 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates the requester's "not fixed" report from the emailed link: a reason of 10 to 500
+ * characters.
+ */
 class ConfirmationDisputeRequest extends FormRequest
 {
     public function authorize(): bool

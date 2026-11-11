@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * The IT detail row of a ticket: type of concern, area, remarks and supervisor. A blank job order
+ * starts with empty strings here until it is filled in.
+ */
 class TicketIT extends Model
 {
     use HasFactory;

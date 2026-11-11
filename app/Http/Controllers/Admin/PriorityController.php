@@ -8,6 +8,11 @@ use App\Http\Resources\Admin\PriorityResource;
 use App\Models\Priority;
 use Illuminate\Database\Eloquent\Builder;
 
+/**
+ * Admin CRUD for priorities and their SLA days. Changing the SLA days applies at once to all Open and
+ * In-progress tickets of that priority, because the due date is computed from the priority when it is
+ * read.
+ */
 class PriorityController extends AdminResourceController
 {
     protected function modelClass(): string

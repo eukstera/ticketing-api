@@ -2,6 +2,10 @@
 
 namespace App\Traits;
 
+/**
+ * The JSON envelope every endpoint returns: {success, message, result} on success, {success: false,
+ * message, errors?} on failure.
+ */
 trait ApiResponseTrait
 {
     public function success(string $message, array $data = [], int $code = 200)

@@ -8,6 +8,10 @@ use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\NewAccessToken;
 
+/**
+ * Creates accounts and checks credentials. Login does not use the session guard: it verifies the
+ * password, rejects deactivated accounts, and issues a Sanctum token.
+ */
 class AuthService
 {
     public function __construct(

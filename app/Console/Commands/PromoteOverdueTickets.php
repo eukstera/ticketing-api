@@ -9,6 +9,11 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+/**
+ * Scheduled every 5 minutes. Moves Open and In-progress tickets to Overdue once their SLA, counted in
+ * working days (WorkingCalendar), has passed. A calendar-day query narrows the rows first, then each
+ * ticket gets the exact working-day check.
+ */
 #[Signature('tickets:promote-overdue')]
 #[Description('Mark Open and In-progress tickets as Overdue once their priority SLA (in working days, Monday to Friday) has passed')]
 class PromoteOverdueTickets extends Command

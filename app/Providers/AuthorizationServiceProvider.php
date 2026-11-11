@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
+/**
+ * Defines the Gates (admin, view-new-tickets, consolidated-report, print-blank-job-order) and the rate
+ * limiters (login 5/min per email and IP, track 10/min, confirmation 20/min, profile 10/min).
+ */
 class AuthorizationServiceProvider extends ServiceProvider
 {
     /**

@@ -5,6 +5,9 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
+/**
+ * The type-of-concern options of an IT ticket (Hardware, Software, Network ...).
+ */
 class TypeOfConcern extends Model
 {
     use HasFactory;

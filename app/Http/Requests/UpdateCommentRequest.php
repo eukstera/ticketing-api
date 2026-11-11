@@ -4,6 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates editing a comment: 1 to 2000 characters.
+ */
 class UpdateCommentRequest extends FormRequest
 {
     public function authorize(): bool

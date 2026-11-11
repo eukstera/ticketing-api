@@ -8,6 +8,10 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+/**
+ * Scheduled daily at 01:00 (Asia/Manila). Closes tickets whose completion the requester never
+ * confirmed or reported as not fixed within TICKET_AUTOCLOSE_DAYS, via CompletionConfirmationService.
+ */
 #[Signature('tickets:auto-close-confirmations')]
 #[Description('Close tickets whose completion nobody confirmed or disputed within TICKET_AUTOCLOSE_DAYS')]
 class AutoCloseConfirmations extends Command

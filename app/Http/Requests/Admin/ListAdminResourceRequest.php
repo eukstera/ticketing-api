@@ -4,6 +4,9 @@ namespace App\Http\Requests\Admin;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates the paging, search, status filter (active, inactive, all) and optional department of the admin list endpoints.
+ */
 class ListAdminResourceRequest extends FormRequest
 {
     public function authorize(): bool

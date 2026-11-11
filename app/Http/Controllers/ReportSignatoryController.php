@@ -7,6 +7,9 @@ use App\Models\ReportSignatory;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * GET /api/report-signatories. The active signatories for the Accomplishment Report download dropdown.
+ */
 class ReportSignatoryController extends Controller
 {
     use ApiResponseTrait;

@@ -9,10 +9,17 @@ use App\Models\TypeOfConcern;
 use App\Traits\ApiResponseTrait;
 use Illuminate\Http\JsonResponse;
 
+/**
+ * Read-only lookup lists (concern types, nature of work, departments, roles) for the ticket forms and
+ * the account screens. Returns active rows only.
+ */
 class LookupController extends Controller
 {
     use ApiResponseTrait;
 
+    /**
+     * GET /api/lookups/concern-types. Active IT concern types.
+     */
     public function concernTypes(): JsonResponse
     {
         $concernTypes = TypeOfConcern::where('status', true)->orderBy('id')->get(['id', 'label']);
@@ -22,6 +29,9 @@ class LookupController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/lookups/nature-of-work. Active Engineering natures of work.
+     */
     public function natureOfWork(): JsonResponse
     {
         $natureOfWork = NatureOfWork::where('status', true)->orderBy('id')->get(['id', 'label']);
@@ -31,6 +41,9 @@ class LookupController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/roles. Active roles as {id, name, key, status}.
+     */
     public function roles(): JsonResponse
     {
         $roles = Role::where('status', true)
@@ -43,6 +56,9 @@ class LookupController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/lookups/departments. Active departments.
+     */
     public function departments(): JsonResponse
     {
         $departments = Department::where('status', true)

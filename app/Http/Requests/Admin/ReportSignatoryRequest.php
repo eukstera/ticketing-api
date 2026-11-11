@@ -5,6 +5,9 @@ namespace App\Http\Requests\Admin;
 use App\Models\ReportSignatory;
 use Illuminate\Validation\Validator;
 
+/**
+ * Validation for the report signatory admin form: name, title and the default flag.
+ */
 class ReportSignatoryRequest extends AdminResourceRequest
 {
     /**

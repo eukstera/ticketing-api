@@ -5,6 +5,9 @@ namespace App\Services;
 use App\Models\Ticket;
 use Illuminate\Support\Facades\DB;
 
+/**
+ * Makes ticket numbers in the form MM-XXX-YYYY. See generate() for the locking.
+ */
 class TicketNumberGenerator
 {
     /**

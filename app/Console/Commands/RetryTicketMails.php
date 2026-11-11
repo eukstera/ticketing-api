@@ -10,6 +10,10 @@ use Illuminate\Console\Attributes\Description;
 use Illuminate\Console\Attributes\Signature;
 use Illuminate\Console\Command;
 
+/**
+ * Scheduled every 5 minutes. Sends again the ticket emails (ticket_mail_log) that failed or are due a
+ * retry. No queue worker runs, so this is the only retry path.
+ */
 #[Signature('tickets:retry-mail')]
 #[Description('Retry confirmation emails that failed or never went out (no queue worker needed)')]
 class RetryTicketMails extends Command

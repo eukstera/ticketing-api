@@ -5,6 +5,10 @@ namespace App\Http\Requests;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates the ticket list query: search, status and priority filters, date range, sort
+ * (requested_at, ticket_number, priority, status) and paging (up to 100 per page).
+ */
 class TicketListRequest extends FormRequest
 {
     public function authorize(): bool

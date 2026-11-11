@@ -32,10 +32,22 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Validator;
 
+/**
+ * The main ticket controller: creating tickets (public IT and Engineering forms, and the staff
+ * "request ticket" form), the department and personal lists, ticket detail, assigning or taking a
+ * ticket, completing it, the dashboard numbers and the priority list. Ticket numbers come from
+ * TicketNumberGenerator inside the same transaction as the insert. The other ticket actions (false
+ * alarm, reopen, blank job orders, confirmation) have their own single-action controllers.
+ */
 class TicketingController extends Controller
 {
     use ApiResponseTrait;
 
+    /**
+     * POST /api/saveTicketIT (public). Saves an IT job request from the requestor form: validates, then in
+     * one transaction takes the next ticket number, creates the ticket (Open), its IT detail and devices,
+     * and the Requested timeline entry. Returns 201 with the ticket.
+     */
     public function saveTicketIT(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
         $this->normalizeRequesterEmail($request);
@@ -77,6 +89,10 @@ class TicketingController extends Controller
     }
 
     // for saving of sir Leandro
+    /**
+     * POST /api/saveRequestTicketIT (signed in). Staff create an IT ticket that is already assigned:
+     * status In-progress with Requested and Assigned timeline entries.
+     */
     public function saveRequestTicketIT(SaveRequestTicketITRequest $request, TicketNumberGenerator $ticketNumberGenerator)
     {
         $ticket = DB::transaction(function () use ($request, $ticketNumberGenerator) {
@@ -145,6 +161,11 @@ class TicketingController extends Controller
         return $ticket;
     }
 
+    /**
+     * POST /api/saveTicketEngineering (public). Saves an Engineering job request: nature of work (a free
+     * "Others" text is required for Others), scope, area and priority. Same transaction and numbering as
+     * the IT form.
+     */
     public function saveTicketEngineering(Request $request, TicketNumberGenerator $ticketNumberGenerator)
     {
         $this->normalizeRequesterEmail($request);
@@ -215,6 +236,10 @@ class TicketingController extends Controller
         }
     }
 
+    /**
+     * GET /api/overdueTickets. Counts the Overdue tickets of the caller's department. The Overdue status
+     * itself is set by tickets:promote-overdue.
+     */
     public function overdueTickets(Request $request)
     {
         $overdue = Ticket::where('department', $request->user()->department_id)
@@ -226,6 +251,10 @@ class TicketingController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/getDepartmentTickets. All tickets of the caller's department, filtered, sorted and paged by
+     * TicketListQuery.
+     */
     public function getDepartmentTickets(TicketListRequest $request, TicketListQuery $ticketList)
     {
         $result = $ticketList->run($request, $request->user()->department_id);
@@ -233,6 +262,9 @@ class TicketingController extends Controller
         return $this->success('Department tickets retreived', ['result' => $result]);
     }
 
+    /**
+     * GET /api/getMyTickets. The same list, limited to the tickets assigned to the caller.
+     */
     public function getMyTickets(TicketListRequest $request, TicketListQuery $ticketList)
     {
         $result = $ticketList->run($request, $request->user()->department_id, $request->user()->id);
@@ -240,6 +272,10 @@ class TicketingController extends Controller
         return $this->success('My tickets retreived', ['result' => $result]);
     }
 
+    /**
+     * GET /api/getTicketRequests (public). The tickets a requestor filed, found by requestorId; the id is
+     * required so anonymous tickets (null id) never match.
+     */
     public function getTicketRequests(Request $request)
     {
         // Required: a missing id must never match the NULL requestorId of anonymous tickets.
@@ -335,6 +371,10 @@ class TicketingController extends Controller
         ], 200);
     }
 
+    /**
+     * GET /api/tickets/{ticket}. The full ticket detail (details, devices, timeline, comments,
+     * confirmation, survey and mail log) after the "view" policy check.
+     */
     public function show(Ticket $ticket)
     {
         Gate::authorize('view', $ticket);
@@ -358,6 +398,12 @@ class TicketingController extends Controller
         return $this->success('Ticket retrieved', ['result' => ['ticket' => new TicketDetailResource($ticket)]]);
     }
 
+    /**
+     * POST /api/tickets/{ticket}/assign. Assign or take a ticket. Who may do it is checked in
+     * AssignTicketRequest. Locks the row so that when two people take the same ticket the first wins; only
+     * an admin may reassign a taken ticket. Completed, False Alarm, Blank, Void and Pending Confirmation
+     * tickets answer 409.
+     */
     public function assignTicket(AssignTicketRequest $request, Ticket $ticket)
     {
         // Authorization (heads assign, others only take) lives in AssignTicketRequest.
@@ -411,6 +457,12 @@ class TicketingController extends Controller
         return $this->success('Ticket assigned successfully', ['result' => ['ticket' => $ticket->fresh()]]);
     }
 
+    /**
+     * POST /api/tickets/{ticket}/complete. The assignee completes the ticket with notes. The ticket
+     * becomes Pending Confirmation and the requester gets an email link, sent after the response by
+     * SendTicketMail. Not Completed yet: the requester confirms, reports it as not fixed, or it
+     * auto-closes.
+     */
     public function markAsComplete(CompleteTicketRequest $request, Ticket $ticket, CompletionConfirmationService $confirmations)
     {
         Gate::authorize('complete', $ticket);
@@ -437,6 +489,10 @@ class TicketingController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/dashboard. For the caller's department and one month (default: this month): the overview
+     * status counts, the count per priority, today's total and completed share, and the top performers.
+     */
     public function getDashboardStats(DashboardRequest $request)
     {
         $department = $request->user()->department_id;
@@ -546,6 +602,9 @@ class TicketingController extends Controller
         ]);
     }
 
+    /**
+     * GET /api/priority. The priorities of a department, for the ticket forms.
+     */
     public function getPriority(ListPriorityRequest $request)
     {
         $priorities = Priority::where('department_id', $request->validated('department_id') ?? $request->user()->department_id)

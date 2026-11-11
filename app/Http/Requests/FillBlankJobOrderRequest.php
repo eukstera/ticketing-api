@@ -8,6 +8,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
+/**
+ * Validates filling in a printed blank job order. Only the member who printed it, or a Section Head,
+ * may fill it in; handing it to someone else follows the assign rule.
+ */
 class FillBlankJobOrderRequest extends FormRequest
 {
     /**

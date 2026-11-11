@@ -8,6 +8,10 @@ use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
+/**
+ * Authorizes and validates assigning a ticket. Section Heads assign anyone; other staff may only take
+ * an untaken ticket for themselves. The check lives here, so the controller does not repeat it.
+ */
 class AssignTicketRequest extends FormRequest
 {
     /**

@@ -6,6 +6,10 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * A priority level of a department with its SLA in working days (sla_days). The legacy text column SLA
+ * is kept in step with it.
+ */
 class Priority extends Model
 {
     use HasFactory;

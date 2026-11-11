@@ -4,6 +4,9 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/**
+ * Validates editing your own name (first name, last name, or both).
+ */
 class UpdateProfileRequest extends FormRequest
 {
     public function authorize(): bool

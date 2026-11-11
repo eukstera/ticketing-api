@@ -17,6 +17,12 @@ use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\Jc;
 use Throwable;
 
+/**
+ * GET /api/reports/accomplishment. Builds the Accomplishment Report as a Word (.docx) file: one
+ * section per day in the range, one numbered line per completed job order (action taken = the
+ * completion notes), then the signatory page. Section Heads may export another user's report; everyone
+ * else only their own.
+ */
 class AccomplishmentReportController extends Controller
 {
     private const FALLBACK_SIGNATORY_NAME = 'JOSEFA SOCORRO MOLON PATAWARAN';
@@ -60,7 +66,6 @@ class AccomplishmentReportController extends Controller
 
         // ---- 3. Build the document ----
         $phpWord = new PhpWord;
-        // $phpWord->getSettings()->setUpdateFields(true);
 
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(10);
