@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FormCode;
 use App\Models\Ticket;
 use Dompdf\Dompdf;
 use Dompdf\Options;
@@ -17,7 +18,6 @@ class JobOrderPdfBuilder
 {
     /** @var array<string, string> picture key => template media part */
     private const IMAGES = [
-        'header_job_order' => 'xl/media/image1.png',
         'header_survey' => 'xl/media/image8.jpeg',
         'form_code_survey' => 'xl/media/image7.png',
     ];
@@ -32,13 +32,17 @@ class JobOrderPdfBuilder
     ];
 
     /**
-     * Builds the PDF and returns the path of a temporary file.
+     * Builds the PDF and returns the path of a temporary file. The control box in the header
+     * shows the current form code and effectivity date: the blank form's for a ticket in the
+     * Blank status, the filled form's for every other ticket.
      */
     public function build(Ticket $ticket): string
     {
+        $data = JobOrderData::fromTicket($ticket);
+
         $html = view('job-order.pdf', [
-            'd' => JobOrderData::fromTicket($ticket),
-            'img' => $this->images(),
+            'd' => $data,
+            'img' => $this->images($ticket->ticketStatus?->label === 'Blank' ? FormCode::JOB_ORDER_BLANK : FormCode::JOB_ORDER),
         ])->render();
 
         $cache = storage_path('framework/cache/dompdf');
@@ -79,7 +83,7 @@ class JobOrderPdfBuilder
     /**
      * @return array{header_job_order: string, header_survey: string, form_code_survey: string, smiley: list<string>}
      */
-    private function images(): array
+    private function images(string $formKey): array
     {
         $template = resource_path(JobOrderFormBuilder::TEMPLATE);
         $zip = new ZipArchive;
@@ -94,6 +98,8 @@ class JobOrderPdfBuilder
         } finally {
             $zip->close();
         }
+
+        $images['header_job_order'] = 'data:image/png;base64,'.base64_encode(app(JobOrderHeader::class)->png($formKey));
 
         return $images;
     }

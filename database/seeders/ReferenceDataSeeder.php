@@ -19,6 +19,11 @@ class ReferenceDataSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->seedTable('form_codes', [
+            ['id' => 1, 'key' => 'job_order', 'name' => 'ICTS Job Order Form', 'document_code' => 'GBTRGHSC-ICTS-04-0003-0000', 'effectivity_date' => '(TBA)'],
+            ['id' => 2, 'key' => 'job_order_blank', 'name' => 'ICTS Job Order Form (Blank)', 'document_code' => 'GBTRGHSC-ICTS-04-0004-0000', 'effectivity_date' => '(TBA)'],
+        ], ['key']);
+
         $this->seedTable('roles', [
             ['id' => 1, 'role' => 'Normal User', 'key' => Role::NORMAL_USER],
             ['id' => 2, 'role' => 'Section Head', 'key' => Role::DEPARTMENT_HEAD],

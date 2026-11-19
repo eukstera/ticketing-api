@@ -344,7 +344,8 @@ class JobOrderTest extends ApiTestCase
         $names = fn (ZipArchive $zip) => collect(range(0, $zip->numFiles - 1))->map(fn ($i) => $zip->getNameIndex($i))->sort()->values()->all();
         $this->assertSame($names($template), $names($output));
 
-        $edited = ['xl/sharedStrings.xml', 'xl/styles.xml', self::SHEET_1, self::SHEET_2, 'xl/workbook.xml'];
+        // the header picture is edited too: its control box text is drawn from form_codes (JobOrderHeaderTest)
+        $edited = ['xl/sharedStrings.xml', 'xl/styles.xml', self::SHEET_1, self::SHEET_2, 'xl/workbook.xml', JobOrderFormBuilder::HEADER_PART];
         foreach ($names($template) as $name) {
             if (in_array($name, $edited, true)) {
                 continue;

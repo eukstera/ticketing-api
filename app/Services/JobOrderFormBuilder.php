@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\FormCode;
 use App\Models\Ticket;
 use DOMDocument;
 use DOMElement;
@@ -14,11 +15,15 @@ use ZipArchive;
  *
  * The template is patched in place: only the text of the JO number, a set of
  * value cells and a few appended styles change. Every other part of the zip
- * (header pictures, smiley drawings, print setup) is carried over untouched.
+ * (smiley drawings, print setup) is carried over untouched. The one exception is the header
+ * picture, which gets the form code and effectivity date drawn into its control box.
  */
 class JobOrderFormBuilder
 {
     public const TEMPLATE = 'templates/jo-form.xlsx';
+
+    /** The header picture: letterhead plus the empty control box that JobOrderHeader fills in. */
+    public const HEADER_PART = 'xl/media/image1.png';
 
     private const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 
@@ -68,6 +73,8 @@ class JobOrderFormBuilder
                 throw new RuntimeException('The job order template could not be opened.');
             }
 
+            // The control box text (form code, effectivity date) is drawn fresh from form_codes on every download.
+            $zip->addFromString(self::HEADER_PART, app(JobOrderHeader::class)->png(FormCode::JOB_ORDER));
             $zip->addFromString('xl/sharedStrings.xml', $this->patchJobOrderNumber($this->part($zip, 'xl/sharedStrings.xml'), $data->number));
 
             [$styles, $styleIds] = $this->patchStyles($this->part($zip, 'xl/styles.xml'));

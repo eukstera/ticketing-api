@@ -12,8 +12,8 @@ class PhpRequirements
     /** @var list<string> job order PDF (dompdf) */
     public const PDF = ['gd', 'mbstring', 'dom'];
 
-    /** @var list<string> job order Excel workbook (zip archive patching) */
-    public const WORKBOOK = ['zip', 'dom'];
+    /** @var list<string> job order Excel workbook (zip archive patching; gd draws the header box text) */
+    public const WORKBOOK = ['gd', 'zip', 'dom'];
 
     /** @var list<string> consolidated report Excel export (phpspreadsheet) */
     public const REPORT_EXPORT = ['gd', 'zip', 'mbstring', 'xml', 'xmlwriter'];

@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\AdminUserController;
 use App\Http\Controllers\Admin\ConcernTypeController;
 use App\Http\Controllers\Admin\DepartmentController;
 use App\Http\Controllers\Admin\DesignationController;
+use App\Http\Controllers\Admin\FormCodeController;
 use App\Http\Controllers\Admin\NatureOfWorkController;
 use App\Http\Controllers\Admin\PriorityController;
 use App\Http\Controllers\Admin\ReportSignatoryController as AdminReportSignatoryController;
@@ -174,6 +175,8 @@ Route::middleware('auth:sanctum')->group(function () {
         $resource('concern-types', ConcernTypeController::class, ['index', 'store', 'update', 'destroy']);
         $resource('nature-of-work', NatureOfWorkController::class, ['index', 'store', 'update', 'destroy']);
         $resource('report-signatories', AdminReportSignatoryController::class, ['index', 'store', 'update', 'destroy']);
+        // form code + effectivity date in the Job Order header: edit only (POST and DELETE answer 405)
+        $resource('form-codes', FormCodeController::class, ['index', 'update']);
     });
 
 });

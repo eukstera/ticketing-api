@@ -45,13 +45,15 @@ class ServerRequirementsTest extends ApiTestCase
             ->assertJsonPath('message', 'PDF generation is not available on this server (missing PHP extension: gd). Ask the system administrator to enable it.');
     }
 
-    public function test_the_excel_job_order_does_not_need_gd(): void
+    public function test_a_missing_gd_extension_is_reported_for_the_excel_job_order_too(): void
     {
         $this->actingAsUser($this->itUser());
         $id = $this->itTicketId();
         $this->serverWithout(['gd']);
 
-        $this->get("/api/tickets/{$id}/job-order?format=xlsx")->assertOk();
+        $this->get("/api/tickets/{$id}/job-order?format=xlsx")
+            ->assertStatus(503)
+            ->assertJsonPath('message', 'Excel generation is not available on this server (missing PHP extension: gd). Ask the system administrator to enable it.');
     }
 
     public function test_a_missing_zip_extension_is_reported_for_the_excel_job_order(): void
